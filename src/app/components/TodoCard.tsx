@@ -26,6 +26,7 @@ interface TodoCardProps {
   onReorderTodo?: (category: TodoCategory, priority: TodoPriority, dragIndex: number, hoverIndex: number) => void;
   onClearCompleted?: () => void;
   isCompletedCard?: boolean;
+  isMobileView?: boolean; // New prop for mobile layout
 }
 
 const CARD_STYLES = {
@@ -162,6 +163,7 @@ export function TodoCard({
   onReorderTodo,
   onClearCompleted,
   isCompletedCard = false,
+  isMobileView = false, // Default to false if not provided
 }: TodoCardProps) {
   const [text, setText] = useState('');
   const [date, setDate] = useState('');
@@ -206,28 +208,38 @@ export function TodoCard({
   const niedrigTodos = todos.filter(t => t.priority === 'niedrig');
 
   // Collapsed view
-  if (isCollapsed) {
+  if (isCollapsed && !isMobileView) {
     return (
       <div
-        className={`w-[48px] flex-none h-full rounded-[24px] border ${styles.bg} ${styles.border} overflow-hidden flex items-center justify-center transition-all cursor-pointer hover:opacity-90`}
+        className={`
+          w-[48px]
+          flex-none 
+          h-full
+          rounded-[24px] border ${styles.bg} ${styles.border} 
+          overflow-hidden flex items-center justify-center 
+          transition-all cursor-pointer hover:opacity-90
+        `}
         onClick={() => setIsCollapsed(false)}
         title="Card aufklappen"
       >
         <div className="flex items-center justify-center h-full w-full relative">
-          <div className="-rotate-90 flex-none whitespace-nowrap">
-            <div className="flex items-center gap-4 px-6 py-2">
-              <h2 className={`font-['Source_Sans_Pro',sans-serif] font-semibold text-[18px] ${styles.headerText}`}>
-                {title}
-              </h2>
-              <button 
-                className="p-1.5 rounded hover:bg-black/5 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsCollapsed(false);
-                }}
-              >
-                <Minimize2 className={`size-5 ${isCompletedCard ? 'text-[#3c0d3c]' : 'text-[#0246a1]'}`} />
-              </button>
+          {/* Desktop: Rotated vertical text */}
+          <div className="flex items-center justify-center h-full w-full relative">
+            <div className="-rotate-90 flex-none whitespace-nowrap">
+              <div className="flex items-center gap-[16px] px-[24px] py-[8px]">
+                <h2 className={`font-['Source_Sans_Pro',sans-serif] font-semibold text-[18px] ${styles.headerText}`}>
+                  {title}
+                </h2>
+                <button 
+                  className="p-[6px] rounded-[4px] hover:bg-black/5 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsCollapsed(false);
+                  }}
+                >
+                  <Minimize2 className={`size-5 ${isCompletedCard ? 'text-[#3c0d3c]' : 'text-[#0246a1]'}`} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -239,44 +251,59 @@ export function TodoCard({
   return (
     <div
       ref={drop}
-      className={`flex-1 min-w-[280px] h-full rounded-[24px] border ${styles.bg} ${styles.border} overflow-hidden flex flex-col transition-all ${
+      className={`flex-1 ${isMobileView ? 'min-w-full' : 'min-w-[280px]'} h-full ${isMobileView ? '' : 'rounded-[24px] border'} ${styles.bg} ${isMobileView ? '' : styles.border} overflow-hidden flex flex-col transition-all ${
         showDropIndicator ? 'ring-4 ring-blue-400 ring-offset-2' : ''
       }`}
     >
       {/* Header */}
-      <div className="pb-[8px] pt-[24px] px-[24px]">
-        <div className="flex items-center justify-between cursor-pointer"
-          onClick={() => setIsCollapsed(true)}
+      <div className={`${isMobileView ? 'pt-[16px]' : 'pt-[24px]'} pb-[8px] px-[24px]`}>
+        <div 
+          className={`flex items-center justify-between ${!isMobileView ? 'cursor-pointer' : ''}`}
+          onClick={() => !isMobileView && setIsCollapsed(true)}
         >
           <h2 className={`font-['Source_Sans_Pro',sans-serif] font-semibold text-[18px] ${styles.headerText}`}>
             {title}
           </h2>
-          <div className="flex items-center gap-1">
-            {isCompletedCard && onClearCompleted && (
+          {!isMobileView && (
+            <div className="flex items-center gap-1">
+              {isCompletedCard && onClearCompleted && (
+                <button 
+                  className="p-1.5 rounded hover:bg-black/5 transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onClearCompleted();
+                  }}
+                  title="Alle erledigten löschen"
+                >
+                  <Trash2 className="size-5 text-[#d2001e]" />
+                </button>
+              )}
               <button 
                 className="p-1.5 rounded hover:bg-black/5 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onClearCompleted();
-                }}
-                title="Alle erledigten löschen"
+                onClick={() => setIsCollapsed(true)}
+                title="Card zuklappen"
               >
-                <Trash2 className="size-5 text-[#d2001e]" />
+                <Maximize2 className={`size-5 ${isCompletedCard ? 'text-[#3c0d3c]' : 'text-[#0246a1]'}`} />
               </button>
-            )}
+            </div>
+          )}
+          {isMobileView && isCompletedCard && onClearCompleted && (
             <button 
               className="p-1.5 rounded hover:bg-black/5 transition-colors"
-              onClick={() => setIsCollapsed(true)}
-              title="Card zuklappen"
+              onClick={(e) => {
+                e.stopPropagation();
+                onClearCompleted();
+              }}
+              title="Alle erledigten löschen"
             >
-              <Maximize2 className={`size-5 ${isCompletedCard ? 'text-[#3c0d3c]' : 'text-[#0246a1]'}`} />
+              <Trash2 className="size-5 text-[#d2001e]" />
             </button>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Todo Items List - Grouped by Priority */}
-      <div className="flex-1 px-[24px] py-[8px] flex flex-col gap-[12px] overflow-y-auto">
+      <div className={`flex-1 px-[24px] ${isMobileView ? 'pt-[8px] pb-[16px]' : 'py-[8px]'} flex flex-col gap-[12px] overflow-y-auto`}>
         <PrioritySection
           priority="hoch"
           todos={hochTodos}
@@ -318,7 +345,7 @@ export function TodoCard({
       </div>
 
       {/* Input Section - Only for non-completed cards */}
-      {!isCompletedCard && onAddTodo && (
+      {!isCompletedCard && onAddTodo && !isMobileView && (
         <div className={`${styles.inputBg} p-[24px]`}>
           <form onSubmit={handleSubmit} className="flex flex-col gap-[16px]">
             {/* Text Input */}

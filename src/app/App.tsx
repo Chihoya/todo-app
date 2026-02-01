@@ -7,6 +7,8 @@ import React, {
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TodoCard } from "@/app/components/TodoCard";
+import { MobileTabBar } from "@/app/components/MobileTabBar";
+import { MobileInputContainer } from "@/app/components/MobileInputContainer";
 import { AuthScreen } from "@/app/components/AuthScreen";
 import { CheckSquare } from "lucide-react";
 import { Todo, TodoCategory, TodoPriority } from "@/types/todo";
@@ -14,6 +16,7 @@ import { todoService } from "@/services/todoService";
 import { authService } from "@/services/authService";
 import { supabaseAuthService } from "@/services/supabaseAuthService";
 import { supabase } from "@/services/supabase";
+import { sortTodosByPriorityAndOrder, calculateMaxOrder } from "@/utils/todoHelpers";
 
 // Use Supabase auth if available, otherwise local auth
 const activeAuthService = supabase ? supabaseAuthService : authService;
@@ -22,6 +25,7 @@ function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [activeMobileCategory, setActiveMobileCategory] = useState<TodoCategory | 'erledigt'>('allgemein');
 
   // Check authentication on mount
   useEffect(() => {
@@ -94,55 +98,29 @@ function App() {
     date?: string,
     priority: TodoPriority = 'niedrig'
   ) => {
-    console.log('🚀 handleAddTodo START:', { category, text, date, priority });
-    
     try {
-      const todoToCreate = {
+      // Create todo with temporary order
+      const newTodo = await todoService.createTodo({
         text,
         completed: false,
         category,
         date,
         priority,
         order: 0,
-      };
-      
-      console.log('📝 Calling todoService.createTodo with:', todoToCreate);
-      
-      // Create todo with temporary order
-      const newTodo = await todoService.createTodo(todoToCreate);
-      
-      console.log('✅ Todo created in storage:', newTodo);
-      console.log('🔍 Does it have priority?', newTodo.priority);
-      console.log('🔍 Does it have order?', newTodo.order);
+      });
       
       // Update state and calculate correct order
       setTodos(prevTodos => {
-        console.log('📊 setTodos called, prevTodos length:', prevTodos.length);
-        
-        const categoryPriorityTodos = prevTodos.filter(
-          t => t.category === category && t.priority === priority
-        );
-        const maxOrder = categoryPriorityTodos.length > 0 
-          ? Math.max(...categoryPriorityTodos.map(t => t.order || 0))
-          : -1;
-        
+        const maxOrder = calculateMaxOrder(prevTodos, category, priority);
         const todoWithOrder = { ...newTodo, order: maxOrder + 1 };
-        
-        console.log('📦 Adding todo with order:', todoWithOrder.order);
-        console.log('📦 Todo has priority:', todoWithOrder.priority);
         
         // Update order in storage
         todoService.updateTodo(todoWithOrder.id, { order: todoWithOrder.order });
         
-        const newTodosArray = [...prevTodos, todoWithOrder];
-        console.log('✨ New todos array length:', newTodosArray.length);
-        
-        return newTodosArray;
+        return [...prevTodos, todoWithOrder];
       });
-      
-      console.log('🏁 handleAddTodo COMPLETE');
     } catch (error) {
-      console.error('❌ Failed to create todo:', error);
+      console.error('Failed to create todo:', error);
     }
   }, []);
 
@@ -235,18 +213,7 @@ function App() {
         const todo = prevTodos.find((t) => t.id === id);
         if (!todo) return prevTodos;
 
-        // Calculate new order
-        const newPriorityTodos = prevTodos.filter(
-          (t) =>
-            t.category === todo.category &&
-            t.priority === newPriority,
-        );
-        const maxOrder =
-          newPriorityTodos.length > 0
-            ? Math.max(
-                ...newPriorityTodos.map((t) => t.order || 0),
-              )
-            : -1;
+        const maxOrder = calculateMaxOrder(prevTodos, todo.category, newPriority);
 
         const updatedTodo = {
           ...todo,
@@ -275,16 +242,7 @@ function App() {
         const todo = prevTodos.find((t) => t.id === id);
         if (!todo) return prevTodos;
 
-        // Calculate new order
-        const targetTodos = prevTodos.filter(
-          (t) =>
-            t.category === newCategory &&
-            t.priority === todo.priority,
-        );
-        const maxOrder =
-          targetTodos.length > 0
-            ? Math.max(...targetTodos.map((t) => t.order || 0))
-            : -1;
+        const maxOrder = calculateMaxOrder(prevTodos, newCategory, todo.priority);
 
         const updatedTodo = {
           ...todo,
@@ -366,75 +324,21 @@ function App() {
   // Add timeout property to function for debouncing
   handleReorderTodo.timeoutId = null as any;
 
+  // Helper function to filter and sort todos
+  const filterAndSortTodos = useCallback((category: string, includeCompleted = false) => {
+    return todos
+      .filter((t) => {
+        if (includeCompleted) return t.completed;
+        return t.category === category && !t.completed;
+      })
+      .sort(sortTodosByPriorityAndOrder);
+  }, [todos]);
+
   // Memoized filtered and sorted todos by category
-  const allgemeinTodos = useMemo(() => {
-    const filtered = todos
-      .filter((t) => t.category === "allgemein" && !t.completed)
-      .sort((a, b) => {
-        const priorityOrder = {
-          hoch: 0,
-          mittel: 1,
-          niedrig: 2,
-        };
-        const priorityDiff =
-          priorityOrder[a.priority] - priorityOrder[b.priority];
-        if (priorityDiff !== 0) return priorityDiff;
-        return (a.order || 0) - (b.order || 0);
-      });
-    console.log(
-      "🔄 allgemeinTodos recalculated:",
-      filtered.length,
-    );
-    return filtered;
-  }, [todos]);
-
-  const dailyTodos = useMemo(() => {
-    return todos
-      .filter((t) => t.category === "daily" && !t.completed)
-      .sort((a, b) => {
-        const priorityOrder = {
-          hoch: 0,
-          mittel: 1,
-          niedrig: 2,
-        };
-        const priorityDiff =
-          priorityOrder[a.priority] - priorityOrder[b.priority];
-        if (priorityDiff !== 0) return priorityDiff;
-        return (a.order || 0) - (b.order || 0);
-      });
-  }, [todos]);
-
-  const weeklyTodos = useMemo(() => {
-    return todos
-      .filter((t) => t.category === "weekly" && !t.completed)
-      .sort((a, b) => {
-        const priorityOrder = {
-          hoch: 0,
-          mittel: 1,
-          niedrig: 2,
-        };
-        const priorityDiff =
-          priorityOrder[a.priority] - priorityOrder[b.priority];
-        if (priorityDiff !== 0) return priorityDiff;
-        return (a.order || 0) - (b.order || 0);
-      });
-  }, [todos]);
-
-  const completedTodos = useMemo(() => {
-    return todos
-      .filter((t) => t.completed)
-      .sort((a, b) => {
-        const priorityOrder = {
-          hoch: 0,
-          mittel: 1,
-          niedrig: 2,
-        };
-        const priorityDiff =
-          priorityOrder[a.priority] - priorityOrder[b.priority];
-        if (priorityDiff !== 0) return priorityDiff;
-        return (a.order || 0) - (b.order || 0);
-      });
-  }, [todos]);
+  const allgemeinTodos = useMemo(() => filterAndSortTodos("allgemein"), [filterAndSortTodos]);
+  const dailyTodos = useMemo(() => filterAndSortTodos("daily"), [filterAndSortTodos]);
+  const weeklyTodos = useMemo(() => filterAndSortTodos("weekly"), [filterAndSortTodos]);
+  const completedTodos = useMemo(() => filterAndSortTodos("", true), [filterAndSortTodos]);
 
   if (isLoading) {
     return (
@@ -453,9 +357,10 @@ function App() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen bg-white p-8">
-        <div className="max-w-[1600px] mx-auto h-[calc(100vh-4rem)]">
-          <div className="flex gap-6 h-full">
+      {/* Desktop Layout */}
+      <div className="hidden md:block min-h-screen bg-white p-8">
+        <div className="w-full h-[calc(100vh-4rem)]">
+          <div className="flex flex-row gap-6 h-full">
             <TodoCard
               title="Allgemein"
               category="allgemein"
@@ -513,6 +418,84 @@ function App() {
             />
           </div>
         </div>
+      </div>
+
+      {/* Mobile Layout */}
+      <div className="block md:hidden min-h-screen bg-white flex flex-col">
+        {/* Todo Card Area */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {activeMobileCategory === 'allgemein' && (
+            <TodoCard
+              title="Allgemein"
+              category="allgemein"
+              todos={allgemeinTodos}
+              onToggleComplete={handleToggleComplete}
+              onDeleteTodo={handleDeleteTodo}
+              onEditTodo={handleEditTodo}
+              onUpdatePriority={handleUpdatePriority}
+              onMoveTodo={handleMoveTodo}
+              onReorderTodo={handleReorderTodo}
+              isMobileView={true}
+            />
+          )}
+          {activeMobileCategory === 'daily' && (
+            <TodoCard
+              title="Daily"
+              category="daily"
+              todos={dailyTodos}
+              onToggleComplete={handleToggleComplete}
+              onDeleteTodo={handleDeleteTodo}
+              onEditTodo={handleEditTodo}
+              onUpdatePriority={handleUpdatePriority}
+              onMoveTodo={handleMoveTodo}
+              onReorderTodo={handleReorderTodo}
+              isMobileView={true}
+            />
+          )}
+          {activeMobileCategory === 'weekly' && (
+            <TodoCard
+              title="Weekly"
+              category="weekly"
+              todos={weeklyTodos}
+              onToggleComplete={handleToggleComplete}
+              onDeleteTodo={handleDeleteTodo}
+              onEditTodo={handleEditTodo}
+              onUpdatePriority={handleUpdatePriority}
+              onMoveTodo={handleMoveTodo}
+              onReorderTodo={handleReorderTodo}
+              isMobileView={true}
+            />
+          )}
+          {activeMobileCategory === 'erledigt' && (
+            <TodoCard
+              title="Erledigt"
+              category="erledigt"
+              todos={completedTodos}
+              onToggleComplete={handleToggleComplete}
+              onDeleteTodo={handleDeleteTodo}
+              onEditTodo={handleEditTodo}
+              onClearCompleted={handleClearCompleted}
+              isCompletedCard={true}
+              isMobileView={true}
+            />
+          )}
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="bg-white border-t border-[#e0e0e0]">
+          <MobileTabBar
+            activeCategory={activeMobileCategory}
+            onCategoryChange={(category) => setActiveMobileCategory(category)}
+          />
+        </div>
+
+        {/* Input Container - Only show for non-completed categories */}
+        {activeMobileCategory !== 'erledigt' && (
+          <MobileInputContainer
+            activeCategory={activeMobileCategory}
+            onAddTodo={handleAddTodo}
+          />
+        )}
       </div>
     </DndProvider>
   );

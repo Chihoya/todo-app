@@ -4,9 +4,11 @@
  * System: Ein festes Passwort für alle Benutzer
  * - Passwort wird in .env als VITE_APP_PASSWORD gesetzt
  * - Alle mit dem Passwort sehen die gleichen To-Dos
+ * - Fallback in DEV: test123
  */
 
 const SESSION_KEY = 'todo_pwa_session';
+const DEV_FALLBACK_PASSWORD = 'test123'; // Fallback für Development
 
 // Hash-Funktion (SHA-256)
 async function hashPassword(password: string): Promise<string> {
@@ -23,14 +25,33 @@ export const authService = {
    */
   hasPassword(): boolean {
     const appPassword = import.meta.env.VITE_APP_PASSWORD;
-    return !!appPassword && appPassword.trim() !== '';
+    const hasConfiguredPassword = !!appPassword && appPassword.trim() !== '';
+    
+    // In Development: immer true (Fallback verfügbar)
+    if (import.meta.env.DEV) {
+      return true;
+    }
+    
+    return hasConfiguredPassword;
   },
 
   /**
    * Hole das App-Passwort aus .env
    */
   getConfiguredPassword(): string | null {
-    return import.meta.env.VITE_APP_PASSWORD || null;
+    const envPassword = import.meta.env.VITE_APP_PASSWORD;
+    
+    // Wenn .env Passwort gesetzt ist, benutze es
+    if (envPassword && envPassword.trim() !== '') {
+      return envPassword;
+    }
+    
+    // Fallback in Development (ohne Warnung - ist gewollt)
+    if (import.meta.env.DEV) {
+      return DEV_FALLBACK_PASSWORD;
+    }
+    
+    return null;
   },
 
   /**
