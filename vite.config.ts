@@ -5,10 +5,10 @@ import react from '@vitejs/plugin-react'
 import { manifestPlugin } from './vite-plugin-manifest'
 
 export default defineConfig(({ mode }) => {
-  // Für GitHub Pages: Setze BASE_URL Umgebungsvariable
-  // Beispiel: BASE_URL=/todo-pwa/ pnpm run build
-  // Für lokales Hosting: kein BASE_URL nötig, default ist '/'
-  const base = process.env.BASE_URL || '/';
+  // Automatische Erkennung: GitHub Pages oder lokal
+  // GitHub Pages: /todo-app/
+  // Lokal: /
+  const base = process.env.GITHUB_ACTIONS ? '/todo-app/' : '/';
 
   return {
     plugins: [
