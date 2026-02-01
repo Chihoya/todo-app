@@ -2,22 +2,17 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches:
-      - main  # Ändere zu 'master' falls dein Hauptbranch 'master' heißt
-
-  # Ermöglicht manuelles Auslösen des Workflows
+    branches: ['main']
   workflow_dispatch:
 
-# Setze Permissions für GitHub Token
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Erlaube nur eine gleichzeitige Deployment-Pipeline
 concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  group: 'pages'
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -25,27 +20,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Node.js
+      
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
+      
       - name: Install pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v2
         with:
           version: 8
-
+      
       - name: Install dependencies
         run: pnpm install
-
+      
       - name: Build
         run: pnpm run build
         env:
-          # Wenn dein Repo z.B. "todo-pwa" heißt, wird die base automatisch gesetzt
-          # Format: https://<username>.github.io/<repo-name>/
-          BASE_URL: /${{ github.event.repository.name }}/
-
+          VITE_APP_PASSWORD: ${{ secrets.VITE_APP_PASSWORD }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
