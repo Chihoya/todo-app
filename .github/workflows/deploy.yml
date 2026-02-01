@@ -40,6 +40,7 @@ jobs:
         run: pnpm run build
         env:
           NODE_ENV: production
+          VITE_APP_PASSWORD: ${{ secrets.VITE_APP_PASSWORD }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
