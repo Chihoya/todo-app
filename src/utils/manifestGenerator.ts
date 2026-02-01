@@ -16,20 +16,19 @@ export function generateManifest() {
     orientation: 'portrait-primary',
     icons: [
       {
-        src: `${baseUrl}icon-192.png`,
+        src: `${baseUrl}icon-192.png`.replace(/\/+/g, '/'),
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any maskable'
       },
       {
-        src: `${baseUrl}icon-512.png`,
+        src: `${baseUrl}icon-512.png`.replace(/\/+/g, '/'),
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any maskable'
       }
     ],
-    categories: ['productivity', 'utilities'],
-    screenshots: []
+    categories: ['productivity', 'utilities']
   };
 
   return manifest;
