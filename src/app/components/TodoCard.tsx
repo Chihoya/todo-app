@@ -202,10 +202,21 @@ export function TodoCard({
   const showDropIndicator = isOver && canDrop;
   const styles = CARD_STYLES[category];
 
-  // Group todos by priority
-  const hochTodos = todos.filter(t => t.priority === 'hoch');
-  const mittelTodos = todos.filter(t => t.priority === 'mittel');
-  const niedrigTodos = todos.filter(t => t.priority === 'niedrig');
+  // Sort function: items with date first, sorted by date, then items without date
+  const sortTodosByDate = (todoList: Todo[]) => {
+    const withDate = todoList.filter(t => t.date).sort((a, b) => {
+      const dateA = new Date(a.date!).getTime();
+      const dateB = new Date(b.date!).getTime();
+      return dateA - dateB; // Ältere Daten zuerst
+    });
+    const withoutDate = todoList.filter(t => !t.date);
+    return [...withDate, ...withoutDate];
+  };
+
+  // Group todos by priority and sort by date
+  const hochTodos = sortTodosByDate(todos.filter(t => t.priority === 'hoch'));
+  const mittelTodos = sortTodosByDate(todos.filter(t => t.priority === 'mittel'));
+  const niedrigTodos = sortTodosByDate(todos.filter(t => t.priority === 'niedrig'));
 
   // Collapsed view
   if (isCollapsed && !isMobileView) {
@@ -215,7 +226,7 @@ export function TodoCard({
           w-[48px]
           flex-none 
           h-full
-          rounded-[24px] border ${styles.bg} ${styles.border} 
+          rounded-[12px] border ${styles.bg} ${styles.border} 
           overflow-hidden flex items-center justify-center 
           transition-all cursor-pointer hover:opacity-90
         `}
@@ -251,59 +262,33 @@ export function TodoCard({
   return (
     <div
       ref={drop}
-      className={`flex-1 ${isMobileView ? 'min-w-full' : 'min-w-[280px]'} h-full ${isMobileView ? '' : 'rounded-[24px] border'} ${styles.bg} ${isMobileView ? '' : styles.border} overflow-hidden flex flex-col transition-all ${
+      className={`flex-1 ${isMobileView ? 'min-w-full' : 'min-w-[280px]'} h-full ${isMobileView ? '' : 'rounded-[12px] border'} ${styles.bg} ${isMobileView ? '' : styles.border} overflow-hidden flex flex-col transition-all ${
         showDropIndicator ? 'ring-4 ring-blue-400 ring-offset-2' : ''
       }`}
     >
       {/* Header */}
-      <div className={`${isMobileView ? 'pt-[16px]' : 'pt-[24px]'} pb-[8px] px-[24px]`}>
+      <div className={`${isMobileView ? 'pt-[16px]' : 'pt-[24px]'} pb-[8px] px-[16px]`}>
         <div 
           className={`flex items-center justify-between ${!isMobileView ? 'cursor-pointer' : ''}`}
           onClick={() => !isMobileView && setIsCollapsed(true)}
         >
-          <h2 className={`font-['Source_Sans_Pro',sans-serif] font-semibold text-[18px] ${styles.headerText}`}>
+          <p className="font-['Source_Sans_Pro',sans-serif] font-semibold text-[18px] text-[#002d5a]">
             {title}
-          </h2>
+          </p>
           {!isMobileView && (
-            <div className="flex items-center gap-1">
-              {isCompletedCard && onClearCompleted && (
-                <button 
-                  className="p-1.5 rounded hover:bg-black/5 transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onClearCompleted();
-                  }}
-                  title="Alle erledigten löschen"
-                >
-                  <Trash2 className="size-5 text-[#d2001e]" />
-                </button>
-              )}
-              <button 
-                className="p-1.5 rounded hover:bg-black/5 transition-colors"
-                onClick={() => setIsCollapsed(true)}
-                title="Card zuklappen"
-              >
-                <Maximize2 className={`size-5 ${isCompletedCard ? 'text-[#3c0d3c]' : 'text-[#0246a1]'}`} />
-              </button>
-            </div>
-          )}
-          {isMobileView && isCompletedCard && onClearCompleted && (
             <button 
-              className="p-1.5 rounded hover:bg-black/5 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onClearCompleted();
-              }}
-              title="Alle erledigten löschen"
+              className="flex items-center justify-center p-[6px] rounded-[4px] shrink-0 size-[24px] hover:bg-black/5 transition-colors"
+              onClick={() => setIsCollapsed(true)}
+              aria-label="Card zuklappen"
             >
-              <Trash2 className="size-5 text-[#d2001e]" />
+              <Minimize2 className="size-5 text-[#0246a1]" />
             </button>
           )}
         </div>
       </div>
 
       {/* Todo Items List - Grouped by Priority */}
-      <div className={`flex-1 min-h-0 px-[24px] ${isMobileView ? 'pt-[8px] pb-[16px]' : 'py-[8px]'} flex flex-col gap-[12px] overflow-y-auto`}>
+      <div className={`flex-1 min-h-0 px-[16px] ${isMobileView ? 'pt-[8px] pb-[16px]' : 'py-[8px]'} flex flex-col gap-[12px] overflow-y-auto`}>
         <PrioritySection
           priority="hoch"
           todos={hochTodos}
@@ -346,7 +331,7 @@ export function TodoCard({
 
       {/* Input Section - Only for non-completed cards */}
       {!isCompletedCard && onAddTodo && !isMobileView && (
-        <div className={`${styles.inputBg} p-[24px]`}>
+        <div className={`${styles.inputBg} p-[16px]`}>
           <form onSubmit={handleSubmit} className="flex flex-col gap-[16px]">
             {/* Text Input */}
             <div className="flex flex-col gap-[4px]">

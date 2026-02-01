@@ -481,23 +481,20 @@ function App() {
           )}
         </div>
 
-        {/* Tab Navigation - Sticky Bottom */}
-        <div className="shrink-0 bg-white border-t border-[#e0e0e0]">
+        {/* Sticky Bottom Container - Tabs + Input */}
+        <div className="shrink-0 bg-[#f7fcff] flex flex-col gap-[24px] pb-[40px] pt-[24px] px-[16px]">
           <MobileTabBar
             activeCategory={activeMobileCategory}
             onCategoryChange={(category) => setActiveMobileCategory(category)}
           />
-        </div>
-
-        {/* Input Container - Sticky Bottom - Only show for non-completed categories */}
-        {activeMobileCategory !== 'erledigt' && (
-          <div className="shrink-0">
+          
+          {activeMobileCategory !== 'erledigt' && (
             <MobileInputContainer
               activeCategory={activeMobileCategory}
               onAddTodo={handleAddTodo}
             />
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </DndProvider>
   );

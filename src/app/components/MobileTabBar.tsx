@@ -6,37 +6,35 @@ interface MobileTabBarProps {
   onCategoryChange: (category: TodoCategory | 'erledigt') => void;
 }
 
-const CARD_CONFIGS: { category: TodoCategory | 'erledigt'; label: string; isCompleted?: boolean }[] = [
-  { category: 'allgemein', label: 'Allgemein' },
-  { category: 'daily', label: 'Daily' },
-  { category: 'weekly', label: 'Weekly' },
-  { category: 'erledigt', label: 'Erledigt', isCompleted: true },
+const TABS = [
+  { category: 'allgemein' as const, label: 'To Do' },
+  { category: 'daily' as const, label: 'Daily' },
+  { category: 'weekly' as const, label: 'Weekly' },
+  { category: 'erledigt' as const, label: 'Archiv' },
 ];
 
 export function MobileTabBar({ activeCategory, onCategoryChange }: MobileTabBarProps) {
   return (
-    <div className="flex gap-[8px] w-full px-[16px] py-[12px]">
-      {CARD_CONFIGS.map(({ category, label, isCompleted }) => {
+    <div className="flex gap-[11px] w-full">
+      {TABS.map(({ category, label }) => {
         const isActive = activeCategory === category;
         
         return (
           <button
             key={category}
             onClick={() => onCategoryChange(category)}
-            className={`
-              flex-1 px-[12px] py-[8px] rounded-[8px] 
-              font-['Source_Sans_Pro',sans-serif] font-semibold text-[14px]
-              transition-all border-2
-              ${
-                isActive
-                  ? isCompleted
-                    ? 'bg-[#f3e5f3] border-[#3c0d3c] text-[#3c0d3c]'
-                    : 'bg-[#e5f1ff] border-[#0246a1] text-[#0246a1]'
-                  : 'bg-white border-[#e0e0e0] text-[#666a6e]'
-              }
-            `}
+            className="bg-[#e6f2ff] flex-1 min-h-px relative rounded-[24px]"
           >
-            {label}
+            {isActive && (
+              <div aria-hidden="true" className="absolute border border-[#0246a1] border-solid inset-[-1px] pointer-events-none rounded-[25px]" />
+            )}
+            <div className="flex items-center justify-center px-[8px] py-[5px]">
+              <p className={`font-['Source_Sans_Pro',sans-serif] text-[14px] leading-normal ${
+                isActive ? 'text-[#0246a1]' : 'text-[#1a1d20]'
+              }`}>
+                {label}
+              </p>
+            </div>
           </button>
         );
       })}

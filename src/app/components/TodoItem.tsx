@@ -1,7 +1,7 @@
 import React from 'react';
 import { useDrag, useDrop } from 'react-dnd';
 import { Checkbox } from '@/app/components/ui/checkbox';
-import { GripVertical, Pen, Trash2 } from 'lucide-react';
+import { GripVertical, Pen, X } from 'lucide-react';
 import { Todo } from '@/types/todo';
 
 interface TodoItemProps {
@@ -187,24 +187,27 @@ export const TodoItem = React.memo(function TodoItem({
     <div
       ref={ref}
       onClick={handleClick}
-      className={`bg-white rounded-[8px] p-[8px] flex items-start gap-[16px] transition-all duration-200 cursor-pointer ${
+      className={`bg-white rounded-[8px] p-[8px] flex items-start gap-[16px] transition-all duration-200 cursor-pointer relative ${
         isDragging ? 'opacity-40 scale-95' : 'opacity-100 scale-100'
       } ${showDropIndicator ? 'ring-2 ring-blue-400 ring-offset-2' : ''} ${
         todo.completed ? 'opacity-60' : ''
       }`}
     >
+      {/* Border as absolute element */}
+      <div aria-hidden="true" className="absolute border border-[#ccd1d6] border-solid inset-0 pointer-events-none rounded-[8px]" />
+      
       {/* Left side: Grip and Checkbox */}
       <div className="flex items-start gap-[4px] shrink-0">
         <div 
           ref={dragHandleRef}
           data-drag-handle
-          className={`p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors ${
-            disableDrag ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing'
+          className={`p-[2px] rounded-[2px] transition-colors ${
+            disableDrag ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing hover:bg-gray-100'
           }`}
         >
           <GripVertical className="size-5 text-[#666a6e] pointer-events-none" />
         </div>
-        <div className="p-[6px]">
+        <div className="p-[2px] rounded-[2px]">
           <Checkbox
             checked={todo.completed}
             onCheckedChange={() => onToggleComplete(todo.id)}
@@ -224,8 +227,8 @@ export const TodoItem = React.memo(function TodoItem({
             onBlur={handleEditBlur}
             onKeyDown={handleEditKeyDown}
             rows={1}
-            className="w-full resize-none cursor-pointer font-['Source_Sans_Pro',sans-serif] text-[16px] leading-normal border-b-2 border-gray-300 focus:outline-none focus:border-blue-500"
-            style={{ minHeight: '24px', overflow: 'hidden' }}
+            className="w-full resize-none cursor-pointer font-['Source_Sans_Pro',sans-serif] text-[14px] leading-normal border-b-2 border-gray-300 focus:outline-none focus:border-blue-500"
+            style={{ minHeight: '20px', overflow: 'hidden' }}
             onInput={(e) => {
               const target = e.target as HTMLTextAreaElement;
               target.style.height = 'auto';
@@ -235,8 +238,8 @@ export const TodoItem = React.memo(function TodoItem({
         ) : (
           <>
             <span
-              className={`cursor-pointer font-['Source_Sans_Pro',sans-serif] text-[16px] leading-normal break-words transition-all duration-300 ${
-                todo.completed ? 'line-through text-gray-400' : 'text-black'
+              className={`cursor-pointer font-['Source_Sans_Pro',sans-serif] text-[14px] leading-normal break-words transition-all duration-300 ${
+                todo.completed ? 'line-through text-gray-400' : 'text-[#1a1d20]'
               }`}
             >
               {todo.text}
@@ -252,17 +255,20 @@ export const TodoItem = React.memo(function TodoItem({
 
       {/* Right side: Edit and Delete buttons */}
       <div className="flex items-start gap-[8px] shrink-0">
-        <button className="p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors" onClick={handleEditClick}>
-          <Pen className="size-5 text-[#0246a1]" />
+        <button 
+          className="flex items-center justify-center p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors size-6" 
+          onClick={handleEditClick}
+        >
+          <Pen className="size-3 text-[#0246a1]" />
         </button>
         <button 
-          className="p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors"
+          className="flex items-center justify-center p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors size-6"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(todo.id);
           }}
         >
-          <Trash2 className="size-5 text-[#d2001e]" />
+          <X className="size-3 text-[#666a6e]" />
         </button>
       </div>
     </div>
