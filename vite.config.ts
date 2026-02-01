@@ -5,10 +5,9 @@ import react from '@vitejs/plugin-react'
 import { manifestPlugin } from './vite-plugin-manifest'
 
 export default defineConfig(({ mode }) => {
-  // Automatische Erkennung: GitHub Pages oder lokal
   // GitHub Pages: /todo-app/
-  // Lokal: /
-  const base = process.env.GITHUB_ACTIONS ? '/todo-app/' : '/';
+  // Development: /
+  const base = mode === 'production' ? '/todo-app/' : '/';
 
   return {
     plugins: [
