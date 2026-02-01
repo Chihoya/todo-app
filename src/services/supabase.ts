@@ -1,16 +1,26 @@
-import { createClient } from "@supabase/supabase-js";
+/**
+ * Supabase Client Konfiguration
+ * 
+ * Optional: Für Multi-Device-Sync
+ * - Development: .env Datei mit VITE_SUPABASE_URL und VITE_SUPABASE_ANON_KEY
+ * - Production: GitHub Secrets
+ */
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
-const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY || "";
+import { createClient } from '@supabase/supabase-js';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn(
-    "Supabase credentials not found. Using localStorage fallback.",
-  );
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+// Nur in Development-Modus Info ausgeben
+if (import.meta.env.DEV) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.log('💾 LocalStorage-Modus (Daten nur auf diesem Gerät)');
+    console.log('ℹ️  Für Multi-Device-Sync: Siehe DOKUMENTATION.md');
+  } else {
+    console.log('☁️ Supabase-Modus (Multi-Device-Sync aktiv)');
+  }
 }
 
-export const supabase = createClient(
-  supabaseUrl,
-  supabaseAnonKey,
-);
+export const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;

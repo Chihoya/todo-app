@@ -7,18 +7,48 @@ import React, {
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TodoCard } from "@/app/components/TodoCard";
+import { AuthScreen } from "@/app/components/AuthScreen";
 import { CheckSquare } from "lucide-react";
 import { Todo, TodoCategory, TodoPriority } from "@/types/todo";
 import { todoService } from "@/services/todoService";
+import { authService } from "@/services/authService";
+import { supabaseAuthService } from "@/services/supabaseAuthService";
+import { supabase } from "@/services/supabase";
+
+// Use Supabase auth if available, otherwise local auth
+const activeAuthService = supabase ? supabaseAuthService : authService;
 
 function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Load todos on mount
+  // Check authentication on mount
   useEffect(() => {
-    loadTodos();
+    const checkAuth = async () => {
+      // For Supabase: check session (synchronous)
+      // For LocalStorage: check session (synchronous)
+      const hasValidSession = supabase
+        ? supabaseAuthService.hasValidSession()
+        : authService.hasValidSession();
+
+      setIsAuthenticated(hasValidSession);
+
+      if (hasValidSession) {
+        loadTodos();
+      } else {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
   }, []);
+
+  // Handle successful authentication
+  const handleAuthenticated = () => {
+    setIsAuthenticated(true);
+    loadTodos();
+  };
 
   const loadTodos = async () => {
     try {
@@ -415,6 +445,10 @@ function App() {
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return <AuthScreen onAuthenticated={handleAuthenticated} />;
   }
 
   return (

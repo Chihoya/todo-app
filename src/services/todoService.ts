@@ -1,4 +1,4 @@
-import { Todo, TodoCategory } from '../types/todo';
+import { Todo, TodoCategory } from '@/types/todo';
 
 /**
  * TodoService - Abstraktionsschicht für Todo-Datenverwaltung
@@ -76,14 +76,23 @@ class LocalStorageTodoService implements TodoService {
     const todos = await this.getTodosFromStorage();
     
     const newTodo: Todo = {
-      ...todoData,
       id: crypto.randomUUID(),
+      text: todoData.text,
+      completed: todoData.completed,
+      category: todoData.category,
+      date: todoData.date || undefined,
+      priority: todoData.priority || 'niedrig',
+      order: todoData.order ?? 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     
+    console.log('💾 LocalStorage: Saving todo:', newTodo);
+    
     todos.push(newTodo);
     await this.saveTodosToStorage(todos);
+    
+    console.log('💾 LocalStorage: Todo saved, returning:', newTodo);
     
     return newTodo;
   }
@@ -131,12 +140,17 @@ class LocalStorageTodoService implements TodoService {
 /**
  * Singleton-Instanz des TodoService
  * 
- * Um später auf Supabase umzustellen:
- * 1. Erstelle SupabaseTodoService, der das TodoService Interface implementiert
- * 2. Ändere diese Zeile zu: export const todoService = new SupabaseTodoService();
+ * Jetzt mit Supabase für zentrale Synchronisation!
  */
+import { SupabaseTodoService } from '@/services/supabaseTodoService';
+import { supabase } from '@/services/supabase';
 
-import { SupabaseTodoService } from "../services/supabaseTodoService";
+// Verwende Supabase wenn verfügbar, sonst LocalStorage als Fallback
+export const todoService: TodoService = supabase 
+  ? new SupabaseTodoService() 
+  : new LocalStorageTodoService();
 
-export const todoService: TodoService =
-  new SupabaseTodoService();
+// Entwicklungs-Info (nur in Dev-Modus)
+if (import.meta.env.DEV) {
+  console.log('📦 TodoService:', supabase ? '☁️ Supabase' : '💾 LocalStorage');
+}
