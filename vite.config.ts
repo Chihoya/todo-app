@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { manifestPlugin } from './vite-plugin-manifest'
 
 export default defineConfig(({ mode }) => {
   // Für GitHub Pages: Setze BASE_URL Umgebungsvariable
@@ -15,6 +16,7 @@ export default defineConfig(({ mode }) => {
       // Tailwind is not being actively used – do not remove them
       react(),
       tailwindcss(),
+      manifestPlugin(),
     ],
     resolve: {
       alias: {

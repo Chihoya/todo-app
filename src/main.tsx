@@ -1,19 +1,27 @@
-import React, { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import App from '@/app/App';
-import '@/styles/index.css';
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import App from '@/app/App.tsx'
+import '@/styles/fonts.css'
+import '@/styles/theme.css'
+import { registerDynamicManifest } from '@/utils/manifestGenerator'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+// Register dynamic manifest before app loads
+registerDynamicManifest();
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
     <App />
-  </StrictMode>,
-);
+  </React.StrictMode>,
+)
 
-// Register Service Worker for PWA
+// Service Worker Registration
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    const swUrl = `${baseUrl}sw.js`;
+    
     navigator.serviceWorker
-      .register('/sw.js')
+      .register(swUrl)
       .then((registration) => {
         console.log('SW registered: ', registration);
       })
