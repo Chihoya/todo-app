@@ -303,7 +303,7 @@ export function TodoCard({
       </div>
 
       {/* Todo Items List - Grouped by Priority */}
-      <div className={`flex-1 px-[24px] ${isMobileView ? 'pt-[8px] pb-[16px]' : 'py-[8px]'} flex flex-col gap-[12px] overflow-y-auto`}>
+      <div className={`flex-1 min-h-0 px-[24px] ${isMobileView ? 'pt-[8px] pb-[16px]' : 'py-[8px]'} flex flex-col gap-[12px] overflow-y-auto`}>
         <PrioritySection
           priority="hoch"
           todos={hochTodos}

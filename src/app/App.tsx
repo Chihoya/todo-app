@@ -421,9 +421,9 @@ function App() {
       </div>
 
       {/* Mobile Layout */}
-      <div className="block md:hidden min-h-screen bg-white flex flex-col">
-        {/* Todo Card Area */}
-        <div className="flex-1 min-h-0 flex flex-col">
+      <div className="block md:hidden h-screen bg-white flex flex-col overflow-hidden">
+        {/* Todo Card Area - Scrollable */}
+        <div className="flex-1 overflow-y-auto">
           {activeMobileCategory === 'allgemein' && (
             <TodoCard
               title="Allgemein"
@@ -481,20 +481,22 @@ function App() {
           )}
         </div>
 
-        {/* Tab Navigation */}
-        <div className="bg-white border-t border-[#e0e0e0]">
+        {/* Tab Navigation - Sticky Bottom */}
+        <div className="shrink-0 bg-white border-t border-[#e0e0e0]">
           <MobileTabBar
             activeCategory={activeMobileCategory}
             onCategoryChange={(category) => setActiveMobileCategory(category)}
           />
         </div>
 
-        {/* Input Container - Only show for non-completed categories */}
+        {/* Input Container - Sticky Bottom - Only show for non-completed categories */}
         {activeMobileCategory !== 'erledigt' && (
-          <MobileInputContainer
-            activeCategory={activeMobileCategory}
-            onAddTodo={handleAddTodo}
-          />
+          <div className="shrink-0">
+            <MobileInputContainer
+              activeCategory={activeMobileCategory}
+              onAddTodo={handleAddTodo}
+            />
+          </div>
         )}
       </div>
     </DndProvider>
