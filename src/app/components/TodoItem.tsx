@@ -164,7 +164,7 @@ export const TodoItem = React.memo(function TodoItem({
         opacity: showDragging ? 0.4 : todo.completed ? 0.6 : 1,
         transform: showDragging ? 'scale(0.95)' : undefined,
       }}
-      className="bg-white rounded-[8px] p-[8px] flex items-start gap-[16px] cursor-pointer relative"
+      className="bg-white rounded-[8px] p-[8px] flex items-center gap-[16px] cursor-pointer relative"
     >
       {/* Border als absolutes Element */}
       <div
@@ -173,26 +173,24 @@ export const TodoItem = React.memo(function TodoItem({
       />
 
       {/* Links: Grip + Checkbox */}
-      <div className="flex items-start gap-[4px] shrink-0">
+      <div className="flex items-center gap-[4px] shrink-0 self-start mt-[2px]">
         <div
           ref={dragHandleRef}
           data-drag-handle
-          className={`p-[2px] rounded-[2px] transition-colors ${
+          className={`rounded-[2px] transition-colors ${
             disableDrag
               ? 'cursor-not-allowed opacity-50'
               : 'cursor-grab active:cursor-grabbing hover:bg-gray-100'
           }`}
         >
-          <GripVertical className="size-5 text-[#666a6e] pointer-events-none" />
+          <GripVertical className="size-4 text-[#666a6e] pointer-events-none" />
         </div>
-        <div className="p-[2px] rounded-[2px]">
-          <Checkbox
-            checked={todo.completed}
-            onCheckedChange={() => onToggleComplete(todo.id)}
-            id={`todo-${todo.id}`}
-            className="size-5 cursor-pointer"
-          />
-        </div>
+        <Checkbox
+          checked={todo.completed}
+          onCheckedChange={() => onToggleComplete(todo.id)}
+          id={`todo-${todo.id}`}
+          className="size-4 cursor-pointer"
+        />
       </div>
 
       {/* Mitte: Text */}
@@ -236,15 +234,15 @@ export const TodoItem = React.memo(function TodoItem({
       </div>
 
       {/* Rechts: Edit + Delete */}
-      <div className="flex items-start gap-[8px] shrink-0">
+      <div className="flex items-center gap-[8px] shrink-0 self-start mt-[1px]">
         <button
-          className="flex items-center justify-center p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors size-6"
+          className="flex items-center justify-center p-[4px] rounded-[4px] hover:bg-gray-100 transition-colors"
           onClick={handleEditClick}
         >
           <Pen className="size-3 text-[#0246a1]" />
         </button>
         <button
-          className="flex items-center justify-center p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors size-6"
+          className="flex items-center justify-center p-[4px] rounded-[4px] hover:bg-gray-100 transition-colors"
           onClick={(e) => {
             e.stopPropagation();
             onDelete(todo.id);
