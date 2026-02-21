@@ -517,23 +517,25 @@ function AllgemeinMobileInput({
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-[8px] items-center">
-      {/* Datum Button */}
-      <button
-        type="button"
-        onClick={() => {
-          const input = document.createElement('input');
-          input.type = 'date';
-          input.value = date;
-          input.onchange = (e) => setDate((e.target as HTMLInputElement).value);
-          input.click();
-        }}
-        className="bg-white border border-[#999da1] rounded-[4px] px-[12px] py-[8px] min-h-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] hover:bg-gray-50 transition-colors flex items-center justify-center shrink-0"
-        title={date || "Datum auswählen"}
-      >
-        <svg className="size-5 text-[#666a6e]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-      </button>
+      {/* Date Button with Transparent Overlay */}
+      <div className="relative size-[40px] shrink-0">
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+          title={date || "Datum auswählen"}
+        />
+        <div className="absolute inset-0 bg-white border border-[#999da1] rounded-[4px] hover:bg-gray-50 transition-colors flex items-center justify-center pointer-events-none">
+          <svg className="size-5 text-[#666a6e]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        {/* Blue Indicator Dot */}
+        {date && (
+          <div className="absolute top-[2px] right-[2px] size-[8px] bg-blue-500 rounded-full border-2 border-white pointer-events-none z-15" />
+        )}
+      </div>
 
       {/* Priorität Button - Zyklisch 3→1→2→3 */}
       <button
@@ -543,7 +545,7 @@ function AllgemeinMobileInput({
           else if (priority === 'hoch') setPriority('mittel');
           else setPriority('niedrig');
         }}
-        className={`border rounded-[4px] px-[12px] py-[8px] min-h-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] font-semibold transition-colors shrink-0 ${
+        className={`border rounded-[4px] px-[12px] py-[8px] size-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] font-semibold transition-colors shrink-0 flex items-center justify-center ${
           priority === 'hoch' 
             ? 'bg-[#ff4444] border-[#ff4444] text-white hover:bg-[#dd3333]' 
             : priority === 'mittel'
@@ -561,7 +563,7 @@ function AllgemeinMobileInput({
           type="text"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          className="bg-white border border-[#999da1] rounded-[4px] pl-[12px] pr-[44px] py-[8px] min-h-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
+          className="bg-white border border-[#999da1] rounded-[4px] pl-[12px] pr-[44px] py-[8px] h-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
           placeholder="Neue Aufgabe hinzufügen..."
           ref={inputRef}
         />

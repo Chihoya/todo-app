@@ -1,7 +1,7 @@
 
   # Web App mit To-Do Funktionen
 
-  This is a code bundle for Web App mit To-Do Funktionen. The original project is available at https://www.figma.com/design/j3GZMYHGzNZBeMvk5E64sj/Web-App-mit-To-Do-Funktionen.
+  This is a code bundle for Web App mit To-Do Funktionen. The original project is available at Figma
 
   ## Running the code
 
