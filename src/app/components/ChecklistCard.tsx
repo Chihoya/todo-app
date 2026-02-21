@@ -11,15 +11,14 @@ interface ChecklistCardProps {
   onEditTodo: (id: string, newText: string) => void;
   onAddTodo?: (text: string) => void;
   onResetAll?: () => void;
+  onReorderChecklist?: (dragIndex: number, hoverIndex: number) => void;
   isMobileView?: boolean;
 }
 
 const CARD_STYLES = {
   bg: 'bg-[#FAF4F2]',
   border: 'border-[#E8C9BF]',
-  headerText: 'text-[#002d5a]',
   inputBg: 'bg-[#f7fcff]',
-  emptyText: 'text-[#999da1]',
   iconColor: 'text-[#0246a1]',
 };
 
@@ -31,6 +30,7 @@ export function ChecklistCard({
   onEditTodo,
   onAddTodo,
   onResetAll,
+  onReorderChecklist,
   isMobileView = false,
 }: ChecklistCardProps) {
   const [text, setText] = useState('');
@@ -87,15 +87,21 @@ export function ChecklistCard({
             </p>
           </div>
         ) : (
-          todos.map((todo) => (
+          todos.map((todo, index) => (
             <TodoItem
               key={todo.id}
               todo={todo}
-              index={0}
+              index={index}
               onToggleComplete={onToggleComplete}
               onDelete={onDeleteTodo}
               onEdit={onEditTodo}
-              disableDrag={true}
+              // Wrapper: neue Signatur (dragId, di, hi, np?) → alten Handler (di, hi)
+              onReorder={
+                onReorderChecklist
+                  ? (_id, di, hi) => onReorderChecklist(di, hi)
+                  : undefined
+              }
+              disableDrag={false}
             />
           ))
         )}

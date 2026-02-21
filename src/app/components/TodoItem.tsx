@@ -1,5 +1,6 @@
 import React from 'react';
-import { useDrag, useDrop } from 'react-dnd';
+import { useDrag, useDrop, useDragLayer } from 'react-dnd';
+import { getEmptyImage } from 'react-dnd-html5-backend';
 import { Checkbox } from '@/app/components/ui/checkbox';
 import { GripVertical, Pen, X } from 'lucide-react';
 import { Todo } from '@/types/todo';
@@ -9,7 +10,14 @@ interface TodoItemProps {
   index: number;
   onToggleComplete: (id: string) => void;
   onDelete: (id: string) => void;
-  onReorder?: (dragIndex: number, hoverIndex: number) => void;
+  /**
+   * Unified reorder callback.
+   * dragId       – ID des gezogenen Items (robuste Nachschlage-Basis)
+   * dragIndex    – Flat-Index des gezogenen Items (Tracking)
+   * hoverIndex   – Flat-Index dieses (Ziel-)Items
+   * newPriority  – Priorität dieses Ziel-Items (optional, für Checklist-Kompatibilität)
+   */
+  onReorder?: (dragId: string, dragIndex: number, hoverIndex: number, newPriority?: string) => void;
   onEdit: (id: string, newText: string) => void;
   disableDrag?: boolean;
 }
@@ -23,14 +31,14 @@ interface DragItem {
   priority: string;
 }
 
-export const TodoItem = React.memo(function TodoItem({ 
-  todo, 
+export const TodoItem = React.memo(function TodoItem({
+  todo,
   index,
-  onToggleComplete, 
-  onDelete, 
+  onToggleComplete,
+  onDelete,
   onReorder,
   onEdit,
-  disableDrag = false
+  disableDrag = false,
 }: TodoItemProps) {
   const ref = React.useRef<HTMLDivElement>(null);
   const dragHandleRef = React.useRef<HTMLDivElement>(null);
@@ -39,7 +47,7 @@ export const TodoItem = React.memo(function TodoItem({
   const [isEditing, setIsEditing] = React.useState(false);
   const [editText, setEditText] = React.useState(todo.text);
 
-  // Drag source - only from the grip handle
+  // Drag source – nur vom Grip-Handle
   const [{ isDragging }, drag, preview] = useDrag<DragItem, void, { isDragging: boolean }>(
     {
       type: ITEM_TYPE,
@@ -52,98 +60,64 @@ export const TodoItem = React.memo(function TodoItem({
         setTimeout(() => setHasDragged(false), 100);
       },
     },
-    [todo.id, index, todo.category, todo.priority, disableDrag]
+    [todo.id, index, todo.category, todo.priority, disableDrag],
   );
 
-  // Drop target
-  const [{ isOver, canDrop }, drop] = useDrop<DragItem, void, { isOver: boolean; canDrop: boolean }>(
+  // Drop-Target – akzeptiert ALLE Items derselben Kategorie (kein Priority-Check)
+  const [, drop] = useDrop<DragItem, void, Record<string, never>>(
     {
       accept: ITEM_TYPE,
       canDrop: (item) => {
-        if (disableDrag || !onReorder) return false;
-        // Can only reorder within same category and priority
-        return item.category === todo.category && item.priority === todo.priority && item.id !== todo.id;
+        if (disableDrag) return false;
+        // Gleiche Kategorie, nicht sich selbst – Priorität spielt keine Rolle mehr
+        return item.category === todo.category && item.id !== todo.id;
       },
-      hover: (item: DragItem, monitor) => {
+      hover: (item: DragItem) => {
         if (!ref.current || !onReorder || disableDrag) return;
-        
-        // Can't drop on itself
         if (item.id === todo.id) return;
-        
-        // Must be same category and priority
-        if (item.category !== todo.category || item.priority !== todo.priority) return;
-        
+        if (item.category !== todo.category) return;
+
         setHasDragged(true);
-        
-        const dragIndex = item.index;
+
         const hoverIndex = index;
 
-        // Don't replace items with themselves
-        if (dragIndex === hoverIndex) return;
+        // Kein Re-Trigger wenn bereits an dieser Position mit gleicher Priorität
+        if (item.index === hoverIndex && item.priority === todo.priority) return;
 
-        // Determine rectangle on screen
-        const hoverBoundingRect = ref.current.getBoundingClientRect();
+        // Einheitlicher Aufruf – egal ob gleiche oder andere Priorität
+        onReorder(item.id, item.index, hoverIndex, todo.priority);
 
-        // Get vertical middle
-        const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
-
-        // Determine mouse position
-        const clientOffset = monitor.getClientOffset();
-        if (!clientOffset) return;
-
-        // Get pixels to the top
-        const hoverClientY = clientOffset.y - hoverBoundingRect.top;
-
-        // Only perform the move when the mouse has crossed half of the items height
-        // When dragging downwards, only move when the cursor is below 50%
-        // When dragging upwards, only move when the cursor is above 50%
-
-        // Dragging downwards
-        if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) {
-          return;
-        }
-
-        // Dragging upwards
-        if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) {
-          return;
-        }
-
-        // Time to actually perform the action
-        onReorder(dragIndex, hoverIndex);
-
-        // Note: we're mutating the item here!
-        // Generally it's better to avoid mutations,
-        // but it's good here for the sake of performance
-        // to avoid expensive index searches.
+        // Tracking aktualisieren
         item.index = hoverIndex;
+        item.priority = todo.priority;
       },
-      collect: (monitor) => ({
-        isOver: monitor.isOver(),
-        canDrop: monitor.canDrop(),
-      }),
     },
-    [index, todo.id, todo.category, todo.priority, disableDrag, onReorder]
+    [index, todo.id, todo.category, todo.priority, disableDrag, onReorder],
   );
 
-  // Connect drop to the entire item (for drop zone)
+  // Drop an gesamtes Item, Drag nur am Handle
   drop(ref);
-  
-  // Connect drag to the grip handle only
   drag(dragHandleRef);
-  
-  // Connect preview to the entire item (for visual feedback)
-  preview(ref);
+
+  // Browser-Default-Preview unterdrücken
+  React.useEffect(() => {
+    preview(getEmptyImage(), { captureDraggingState: true });
+  }, [preview]);
+
+  // Globaler Drag-Layer: überlebt Remounts beim Prioritätswechsel.
+  // isDragging (lokal) wird nach Remount false – isDraggingGlobal bleibt true.
+  const isDraggingGlobal = useDragLayer((monitor) =>
+    monitor.isDragging() && (monitor.getItem() as DragItem | null)?.id === todo.id,
+  );
+
+  const showDragging = isDragging || isDraggingGlobal;
 
   const handleClick = (e: React.MouseEvent) => {
-    // Don't toggle if in edit mode
     if (isEditing) return;
-    
-    // Only toggle if we didn't drag
     if (!hasDragged) {
-      // Prevent toggling if clicking on buttons, checkbox, input, or drag handle
       const target = e.target as HTMLElement;
       if (
-        target.closest('button') || 
+        target.closest('button') ||
         target.closest('input') ||
         target.closest('[data-drag-handle]')
       ) {
@@ -158,7 +132,6 @@ export const TodoItem = React.memo(function TodoItem({
     setTimeout(() => {
       if (editInputRef.current) {
         editInputRef.current.focus();
-        // Auto-resize on mount
         editInputRef.current.style.height = 'auto';
         editInputRef.current.style.height = editInputRef.current.scrollHeight + 'px';
       }
@@ -181,28 +154,33 @@ export const TodoItem = React.memo(function TodoItem({
     }
   };
 
-  const showDropIndicator = isOver && canDrop;
-
   return (
     <div
       ref={ref}
       onClick={handleClick}
-      className={`bg-white rounded-[8px] p-[8px] flex items-start gap-[16px] transition-all duration-200 cursor-pointer relative ${
-        isDragging ? 'opacity-40 scale-95' : 'opacity-100 scale-100'
-      } ${showDropIndicator ? 'ring-2 ring-blue-400 ring-offset-2' : ''} ${
-        todo.completed ? 'opacity-60' : ''
-      }`}
+      style={{
+        // Inline-Styles für Opacity/Transform: keine CSS-Transition → sofortige Änderung.
+        // transition-all auf Klassen würde das Ausblenden nach Drop um 200ms verzögern.
+        opacity: showDragging ? 0.4 : todo.completed ? 0.6 : 1,
+        transform: showDragging ? 'scale(0.95)' : undefined,
+      }}
+      className="bg-white rounded-[8px] p-[8px] flex items-start gap-[16px] cursor-pointer relative"
     >
-      {/* Border as absolute element */}
-      <div aria-hidden="true" className="absolute border border-[#ccd1d6] border-solid inset-0 pointer-events-none rounded-[8px]" />
-      
-      {/* Left side: Grip and Checkbox */}
+      {/* Border als absolutes Element */}
+      <div
+        aria-hidden="true"
+        className="absolute border border-[#ccd1d6] border-solid inset-0 pointer-events-none rounded-[8px]"
+      />
+
+      {/* Links: Grip + Checkbox */}
       <div className="flex items-start gap-[4px] shrink-0">
-        <div 
+        <div
           ref={dragHandleRef}
           data-drag-handle
           className={`p-[2px] rounded-[2px] transition-colors ${
-            disableDrag ? 'cursor-not-allowed opacity-50' : 'cursor-grab active:cursor-grabbing hover:bg-gray-100'
+            disableDrag
+              ? 'cursor-not-allowed opacity-50'
+              : 'cursor-grab active:cursor-grabbing hover:bg-gray-100'
           }`}
         >
           <GripVertical className="size-5 text-[#666a6e] pointer-events-none" />
@@ -217,7 +195,7 @@ export const TodoItem = React.memo(function TodoItem({
         </div>
       </div>
 
-      {/* Middle: Text */}
+      {/* Mitte: Text */}
       <div className="flex-1 min-w-0 flex flex-col gap-[2px]">
         {isEditing ? (
           <textarea
@@ -246,22 +224,26 @@ export const TodoItem = React.memo(function TodoItem({
             </span>
             {todo.date && (
               <span className="font-['Source_Sans_Pro',sans-serif] text-[10px] text-[#666a6e] leading-normal">
-                {new Date(todo.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                {new Date(todo.date).toLocaleDateString('de-DE', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                })}
               </span>
             )}
           </>
         )}
       </div>
 
-      {/* Right side: Edit and Delete buttons */}
+      {/* Rechts: Edit + Delete */}
       <div className="flex items-start gap-[8px] shrink-0">
-        <button 
-          className="flex items-center justify-center p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors size-6" 
+        <button
+          className="flex items-center justify-center p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors size-6"
           onClick={handleEditClick}
         >
           <Pen className="size-3 text-[#0246a1]" />
         </button>
-        <button 
+        <button
           className="flex items-center justify-center p-[6px] rounded-[4px] hover:bg-gray-100 transition-colors size-6"
           onClick={(e) => {
             e.stopPropagation();

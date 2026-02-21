@@ -11,14 +11,13 @@ import { TodoCard } from "@/app/components/TodoCard";
 import { ChecklistCard } from "@/app/components/ChecklistCard";
 import { MobileTabBar } from "@/app/components/MobileTabBar";
 import { AuthScreen } from "@/app/components/AuthScreen";
-import { CheckSquare } from "lucide-react";
+import { CheckSquare, Plus } from "lucide-react";
 import { Todo, TodoCategory, TodoPriority } from "@/types/todo";
 import { todoService } from "@/services/todoService";
 import { authService } from "@/services/authService";
 import { supabaseAuthService } from "@/services/supabaseAuthService";
 import { supabase } from "@/services/supabase";
 import { sortTodosByPriorityAndOrder, calculateMaxOrder } from "@/utils/todoHelpers";
-import { Plus } from "lucide-react";
 
 function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
@@ -46,7 +45,6 @@ function App() {
     checkAuth();
   }, []);
 
-  // Handle successful authentication
   const handleAuthenticated = () => {
     setIsAuthenticated(true);
     loadTodos();
@@ -57,22 +55,17 @@ function App() {
       setIsLoading(true);
       const allTodos = await todoService.getAllTodos();
 
-      // Migration: Add missing priority field to old todos
+      // Migration: Add missing priority/order fields to old todos
       const migratedTodos = allTodos.map((todo) => ({
         ...todo,
         priority: todo.priority || ("niedrig" as TodoPriority),
         order: todo.order ?? 0,
       }));
 
-      // Save migrated todos if needed
-      const hasOldTodos = migratedTodos.some(
-        (todo, i) => !allTodos[i].priority,
-      );
+      const hasOldTodos = migratedTodos.some((todo, i) => !allTodos[i].priority);
       if (hasOldTodos) {
         for (const todo of migratedTodos) {
-          if (
-            !allTodos.find((t) => t.id === todo.id)?.priority
-          ) {
+          if (!allTodos.find((t) => t.id === todo.id)?.priority) {
             await todoService.updateTodo(todo.id, {
               priority: todo.priority,
               order: todo.order,
@@ -97,7 +90,6 @@ function App() {
     priority: TodoPriority = 'niedrig'
   ) => {
     try {
-      // Create todo with temporary order
       const newTodo = await todoService.createTodo({
         text,
         completed: false,
@@ -106,15 +98,11 @@ function App() {
         priority,
         order: 0,
       });
-      
-      // Update state and calculate correct order
+
       setTodos(prevTodos => {
         const maxOrder = calculateMaxOrder(prevTodos, category, priority);
         const todoWithOrder = { ...newTodo, order: maxOrder + 1 };
-        
-        // Update order in storage
         todoService.updateTodo(todoWithOrder.id, { order: todoWithOrder.order });
-        
         return [...prevTodos, todoWithOrder];
       });
     } catch (error) {
@@ -123,43 +111,30 @@ function App() {
   }, []);
 
   // Toggle todo completion
-  const handleToggleComplete = useCallback(
-    async (id: string) => {
-      // Optimistically update UI first
-      setTodos((prevTodos) => {
-        const todo = prevTodos.find((t) => t.id === id);
-        if (!todo) return prevTodos;
+  const handleToggleComplete = useCallback(async (id: string) => {
+    setTodos((prevTodos) => {
+      const todo = prevTodos.find((t) => t.id === id);
+      if (!todo) return prevTodos;
+      return prevTodos.map((t) => t.id === id ? { ...t, completed: !t.completed } : t);
+    });
 
-        return prevTodos.map((t) =>
-          t.id === id ? { ...t, completed: !t.completed } : t,
-        );
-      });
-
-      // Then update storage
-      try {
-        const todo = await todoService.getTodoById(id);
-        if (todo) {
-          await todoService.updateTodo(id, {
-            completed: !todo.completed,
-          });
-        }
-      } catch (error) {
-        console.error("Failed to update todo:", error);
-        // Revert on error
-        loadTodos();
+    try {
+      const todo = await todoService.getTodoById(id);
+      if (todo) {
+        await todoService.updateTodo(id, { completed: !todo.completed });
       }
-    },
-    [],
-  );
+    } catch (error) {
+      console.error("Failed to update todo:", error);
+      loadTodos();
+    }
+  }, []);
 
   // Delete todo
   const handleDeleteTodo = useCallback(async (id: string) => {
     try {
       const success = await todoService.deleteTodo(id);
       if (success) {
-        setTodos((prevTodos) =>
-          prevTodos.filter((t) => t.id !== id),
-        );
+        setTodos((prevTodos) => prevTodos.filter((t) => t.id !== id));
       }
     } catch (error) {
       console.error("Failed to delete todo:", error);
@@ -169,160 +144,140 @@ function App() {
   // Clear all completed todos
   const handleClearCompleted = useCallback(async () => {
     setTodos((prevTodos) => {
-      const completedTodos = prevTodos.filter(
-        (t) => t.completed,
-      );
-
-      // Delete from storage
-      completedTodos.forEach((todo) => {
-        todoService.deleteTodo(todo.id);
-      });
-
+      const completedTodos = prevTodos.filter((t) => t.completed);
+      completedTodos.forEach((todo) => todoService.deleteTodo(todo.id));
       return prevTodos.filter((t) => !t.completed);
     });
   }, []);
 
   // Edit todo text
-  const handleEditTodo = useCallback(
-    async (id: string, newText: string) => {
-      try {
-        const updatedTodo = await todoService.updateTodo(id, {
-          text: newText,
-        });
-
-        if (updatedTodo) {
-          setTodos((prevTodos) =>
-            prevTodos.map((t) =>
-              t.id === id ? updatedTodo : t,
-            ),
-          );
-        }
-      } catch (error) {
-        console.error("Failed to edit todo:", error);
+  const handleEditTodo = useCallback(async (id: string, newText: string) => {
+    try {
+      const updatedTodo = await todoService.updateTodo(id, { text: newText });
+      if (updatedTodo) {
+        setTodos((prevTodos) =>
+          prevTodos.map((t) => t.id === id ? updatedTodo : t)
+        );
       }
-    },
-    [],
-  );
+    } catch (error) {
+      console.error("Failed to edit todo:", error);
+    }
+  }, []);
 
-  // Update todo priority
-  const handleUpdatePriority = useCallback(
-    async (id: string, newPriority: TodoPriority) => {
-      setTodos((prevTodos) => {
-        const todo = prevTodos.find((t) => t.id === id);
-        if (!todo) return prevTodos;
+  // Move todo to different category (cross-card drag & drop)
+  const handleMoveTodo = useCallback(async (id: string, newCategory: TodoCategory) => {
+    setTodos((prevTodos) => {
+      const todo = prevTodos.find((t) => t.id === id);
+      if (!todo) return prevTodos;
 
-        const maxOrder = calculateMaxOrder(prevTodos, todo.category, newPriority);
+      const maxOrder = calculateMaxOrder(prevTodos, newCategory, todo.priority);
+      const updatedTodo = { ...todo, category: newCategory, order: maxOrder + 1 };
 
-        const updatedTodo = {
-          ...todo,
-          priority: newPriority,
-          order: maxOrder + 1,
-        };
+      todoService.updateTodo(id, { category: newCategory, order: maxOrder + 1 });
 
-        // Update storage
-        todoService.updateTodo(id, {
-          priority: newPriority,
-          order: maxOrder + 1,
-        });
+      return prevTodos.map((t) => t.id === id ? updatedTodo : t);
+    });
+  }, []);
 
-        return prevTodos.map((t) =>
-          t.id === id ? updatedTodo : t,
+  // ---------------------------------------------------------------------------
+  // Flat-Reorder-Handler für TodoCard.
+  // Nutzt die ID des gezogenen Items für robuste Suche (stale-index-sicher).
+  // ---------------------------------------------------------------------------
+  const handleFlatReorderTodo = useCallback((
+    category: TodoCategory,
+    dragId: string,
+    _dragFlatIndex: number,
+    hoverFlatIndex: number,
+    newPriority: TodoPriority,
+  ) => {
+    setTodos((prevTodos) => {
+      const categoryTodos = prevTodos.filter(
+        (t) => t.category === category && !t.completed,
+      );
+      const otherTodos = prevTodos.filter(
+        (t) => !(t.category === category && !t.completed),
+      );
+
+      const sortByDate = (list: Todo[]) => {
+        const withDate = [...list.filter((t) => t.date)].sort(
+          (a, b) => new Date(a.date!).getTime() - new Date(b.date!).getTime(),
         );
-      });
-    },
-    [],
-  );
+        const withoutDate = list.filter((t) => !t.date);
+        return [...withDate, ...withoutDate];
+      };
 
-  // Move todo to different category
-  const handleMoveTodo = useCallback(
-    async (id: string, newCategory: TodoCategory) => {
-      setTodos((prevTodos) => {
-        const todo = prevTodos.find((t) => t.id === id);
-        if (!todo) return prevTodos;
-
-        const maxOrder = calculateMaxOrder(prevTodos, newCategory, todo.priority);
-
-        const updatedTodo = {
-          ...todo,
-          category: newCategory,
-          order: maxOrder + 1,
-        };
-
-        // Update storage
-        todoService.updateTodo(id, {
-          category: newCategory,
-          order: maxOrder + 1,
-        });
-
-        return prevTodos.map((t) =>
-          t.id === id ? updatedTodo : t,
-        );
-      });
-    },
-    [],
-  );
-
-  // Reorder todo within same category and priority
-  const handleReorderTodo = useCallback(
-    (
-      category: TodoCategory,
-      priority: TodoPriority,
-      dragIndex: number,
-      hoverIndex: number,
-    ) => {
-      setTodos((prevTodos) => {
-        // Get todos in this priority section
-        const priorityTodos = prevTodos.filter(
-          (t) =>
-            t.category === category && t.priority === priority,
-        );
-        const otherTodos = prevTodos.filter(
-          (t) =>
-            !(
-              t.category === category && t.priority === priority
-            ),
+      const byPrio = (p: TodoPriority) =>
+        sortByDate(
+          categoryTodos
+            .filter((t) => t.priority === p)
+            .sort((a, b) => (a.order || 0) - (b.order || 0)),
         );
 
-        // Reorder
-        const draggedTodo = priorityTodos[dragIndex];
-        const reordered = [...priorityTodos];
-        reordered.splice(dragIndex, 1);
-        reordered.splice(hoverIndex, 0, draggedTodo);
+      const flat = [...byPrio('hoch'), ...byPrio('mittel'), ...byPrio('niedrig')];
+      const actualDragIndex = flat.findIndex((t) => t.id === dragId);
+      if (actualDragIndex === -1) return prevTodos;
 
-        // Update order field
-        const updated = reordered.map((todo, index) => ({
-          ...todo,
-          order: index,
-        }));
+      const clampedHover = Math.max(0, Math.min(hoverFlatIndex, flat.length - 1));
 
-        // Debounce storage updates - batch them together
-        // Clear any pending updates
-        if (handleReorderTodo.timeoutId) {
-          clearTimeout(handleReorderTodo.timeoutId);
-        }
-        
-        // Schedule batch update
-        handleReorderTodo.timeoutId = setTimeout(() => {
-          // Batch update all items at once
-          Promise.all(
-            updated.map((todo) =>
-              todoService.updateTodo(todo.id, { order: todo.order })
-            )
-          ).catch((error) => {
-            console.error('Failed to update todo order:', error);
-          });
-        }, 500) as any;
+      if (actualDragIndex === clampedHover && flat[actualDragIndex]?.priority === newPriority) {
+        return prevTodos;
+      }
 
-        return [...otherTodos, ...updated];
-      });
-    },
-    [],
-  ) as any;
-  
-  // Add timeout property to function for debouncing
-  handleReorderTodo.timeoutId = null as any;
+      const draggedTodo = flat[actualDragIndex];
+      const reordered = [...flat];
+      reordered.splice(actualDragIndex, 1);
+      reordered.splice(clampedHover, 0, { ...draggedTodo, priority: newPriority });
 
-  // Helper function to filter and sort todos
+      const updated = reordered.map((todo, idx) => ({ ...todo, order: idx }));
+
+      if ((handleFlatReorderTodo as any).timeoutId) {
+        clearTimeout((handleFlatReorderTodo as any).timeoutId);
+      }
+      (handleFlatReorderTodo as any).timeoutId = setTimeout(() => {
+        Promise.all(
+          updated.map((todo) =>
+            todoService.updateTodo(todo.id, {
+              order: todo.order,
+              priority: todo.priority,
+            }),
+          ),
+        ).catch((err) => console.error('Failed to update todo order/priority:', err));
+      }, 500) as any;
+
+      return [...otherTodos, ...updated];
+    });
+  }, []) as any;
+
+  (handleFlatReorderTodo as any).timeoutId = null;
+
+  // Reorder checklist items
+  const handleReorderChecklist = useCallback((dragIndex: number, hoverIndex: number) => {
+    setTodos((prevTodos) => {
+      const checklistTodos = prevTodos.filter((t) => t.category === 'dailyChecklist');
+      const otherTodos = prevTodos.filter((t) => t.category !== 'dailyChecklist');
+
+      const draggedTodo = checklistTodos[dragIndex];
+      const reordered = [...checklistTodos];
+      reordered.splice(dragIndex, 1);
+      reordered.splice(hoverIndex, 0, draggedTodo);
+
+      const updated = reordered.map((todo, index) => ({ ...todo, order: index }));
+
+      if ((handleReorderChecklist as any).timeoutId) {
+        clearTimeout((handleReorderChecklist as any).timeoutId);
+      }
+      (handleReorderChecklist as any).timeoutId = setTimeout(() => {
+        Promise.all(
+          updated.map((todo) => todoService.updateTodo(todo.id, { order: todo.order }))
+        ).catch((error) => console.error('Failed to update checklist order:', error));
+      }, 500) as any;
+
+      return [...otherTodos, ...updated];
+    });
+  }, []) as any;
+
+  (handleReorderChecklist as any).timeoutId = null;
+
   const filterAndSortTodos = useCallback((category: string, includeCompleted = false) => {
     return todos
       .filter((t) => {
@@ -332,39 +287,29 @@ function App() {
       .sort(sortTodosByPriorityAndOrder);
   }, [todos]);
 
-  // Helper function specifically for checklist (shows both completed and uncompleted)
   const filterAndSortChecklistTodos = useCallback((category: string) => {
     return todos
       .filter((t) => t.category === category)
       .sort(sortTodosByPriorityAndOrder);
   }, [todos]);
 
-  // Memoized filtered and sorted todos by category
   const allgemeinTodos = useMemo(() => filterAndSortTodos("allgemein"), [filterAndSortTodos]);
   const dailyChecklistTodos = useMemo(() => filterAndSortChecklistTodos("dailyChecklist"), [filterAndSortChecklistTodos]);
   const completedTodos = useMemo(() => filterAndSortTodos("", true), [filterAndSortTodos]);
 
-  // Reset all checklist items to uncompleted
   const handleResetChecklist = useCallback(async () => {
     const checklistTodos = todos.filter(t => t.category === 'dailyChecklist' && t.completed);
-    
-    // Optimistically update UI first
-    setTodos(prevTodos => prevTodos.map(t => 
-      t.category === 'dailyChecklist' && t.completed 
-        ? { ...t, completed: false }
-        : t
+
+    setTodos(prevTodos => prevTodos.map(t =>
+      t.category === 'dailyChecklist' && t.completed ? { ...t, completed: false } : t
     ));
 
-    // Then update storage
     try {
       await Promise.all(
-        checklistTodos.map(todo => 
-          todoService.updateTodo(todo.id, { completed: false })
-        )
+        checklistTodos.map(todo => todoService.updateTodo(todo.id, { completed: false }))
       );
     } catch (error) {
       console.error('Failed to reset checklist:', error);
-      // Revert on error
       loadTodos();
     }
   }, [todos]);
@@ -390,43 +335,40 @@ function App() {
       <div className="hidden md:block min-h-screen bg-[#FBFEFE]">
         <div className="px-[16px] py-[32px] h-full">
           <div className="flex gap-[16px] h-[calc(100vh-64px)]">
-              <TodoCard
-                title={isAllgemeinArchiveView ? "Archiv" : "Allgemein"}
-                category="allgemein"
-                todos={isAllgemeinArchiveView ? completedTodos : allgemeinTodos}
-                onToggleComplete={handleToggleComplete}
-                onDeleteTodo={handleDeleteTodo}
-                onEditTodo={handleEditTodo}
-                onUpdatePriority={!isAllgemeinArchiveView ? handleUpdatePriority : undefined}
-                onMoveTodo={!isAllgemeinArchiveView ? handleMoveTodo : undefined}
-                onAddTodo={!isAllgemeinArchiveView ? (text, date, priority) =>
-                  handleAddTodo("allgemein", text, date, priority) : undefined
-                }
-                onReorderTodo={!isAllgemeinArchiveView ? handleReorderTodo : undefined}
-                onClearCompleted={isAllgemeinArchiveView ? handleClearCompleted : undefined}
-                isCompletedCard={isAllgemeinArchiveView}
-                isArchiveView={isAllgemeinArchiveView}
-                onToggleArchive={() => setIsAllgemeinArchiveView(!isAllgemeinArchiveView)}
-              />
+            <TodoCard
+              title={isAllgemeinArchiveView ? "Archiv" : "Allgemein"}
+              category="allgemein"
+              todos={isAllgemeinArchiveView ? completedTodos : allgemeinTodos}
+              onToggleComplete={handleToggleComplete}
+              onDeleteTodo={handleDeleteTodo}
+              onEditTodo={handleEditTodo}
+              onMoveTodo={!isAllgemeinArchiveView ? handleMoveTodo : undefined}
+              onAddTodo={!isAllgemeinArchiveView ? (text, date, priority) =>
+                handleAddTodo("allgemein", text, date, priority) : undefined
+              }
+              onReorderTodo={!isAllgemeinArchiveView ? handleFlatReorderTodo : undefined}
+              onClearCompleted={isAllgemeinArchiveView ? handleClearCompleted : undefined}
+              isCompletedCard={isAllgemeinArchiveView}
+              isArchiveView={isAllgemeinArchiveView}
+              onToggleArchive={() => setIsAllgemeinArchiveView(!isAllgemeinArchiveView)}
+            />
 
-              <ChecklistCard
-                title="Daily Checkliste"
-                todos={dailyChecklistTodos}
-                onToggleComplete={handleToggleComplete}
-                onDeleteTodo={handleDeleteTodo}
-                onEditTodo={handleEditTodo}
-                onAddTodo={(text) =>
-                  handleAddTodo("dailyChecklist", text, undefined, 'niedrig')
-                }
-                onResetAll={handleResetChecklist}
-              />
+            <ChecklistCard
+              title="Daily Checkliste"
+              todos={dailyChecklistTodos}
+              onToggleComplete={handleToggleComplete}
+              onDeleteTodo={handleDeleteTodo}
+              onEditTodo={handleEditTodo}
+              onAddTodo={(text) => handleAddTodo("dailyChecklist", text, undefined, 'niedrig')}
+              onResetAll={handleResetChecklist}
+              onReorderChecklist={handleReorderChecklist}
+            />
           </div>
         </div>
       </div>
 
       {/* Mobile Layout */}
       <div className="block md:hidden h-screen bg-white flex flex-col overflow-hidden">
-        {/* Todo Card Area - Scrollable */}
         <div className="flex-1 overflow-y-auto">
           {activeMobileCategory === 'allgemein' && (
             <TodoCard
@@ -436,12 +378,11 @@ function App() {
               onToggleComplete={handleToggleComplete}
               onDeleteTodo={handleDeleteTodo}
               onEditTodo={handleEditTodo}
-              onUpdatePriority={!isAllgemeinArchiveView ? handleUpdatePriority : undefined}
               onMoveTodo={!isAllgemeinArchiveView ? handleMoveTodo : undefined}
               onAddTodo={!isAllgemeinArchiveView ? (text, date, priority) =>
                 handleAddTodo("allgemein", text, date, priority) : undefined
               }
-              onReorderTodo={!isAllgemeinArchiveView ? handleReorderTodo : undefined}
+              onReorderTodo={!isAllgemeinArchiveView ? handleFlatReorderTodo : undefined}
               onClearCompleted={isAllgemeinArchiveView ? handleClearCompleted : undefined}
               isCompletedCard={isAllgemeinArchiveView}
               isArchiveView={isAllgemeinArchiveView}
@@ -456,10 +397,9 @@ function App() {
               onToggleComplete={handleToggleComplete}
               onDeleteTodo={handleDeleteTodo}
               onEditTodo={handleEditTodo}
-              onAddTodo={(text) =>
-                handleAddTodo("dailyChecklist", text, undefined, 'niedrig')
-              }
+              onAddTodo={(text) => handleAddTodo("dailyChecklist", text, undefined, 'niedrig')}
               onResetAll={handleResetChecklist}
+              onReorderChecklist={handleReorderChecklist}
               isMobileView={true}
             />
           )}
@@ -467,21 +407,18 @@ function App() {
 
         {/* Sticky Bottom Container - Tabs + Input */}
         <div className="shrink-0 bg-[#f7fcff] flex flex-col gap-[16px] pb-[40px] pt-[24px] px-[16px]">
-          {/* Tab Bar */}
           <MobileTabBar
             activeCategory={activeMobileCategory}
             onCategoryChange={(category) => setActiveMobileCategory(category)}
           />
-          
-          {/* Mobile Input Area */}
           <div className="w-full">
             {activeMobileCategory === 'allgemein' && !isAllgemeinArchiveView && (
-              <AllgemeinMobileInput 
+              <AllgemeinMobileInput
                 onAddTodo={(text, date, priority) => handleAddTodo("allgemein", text, date, priority)}
               />
             )}
             {activeMobileCategory === 'dailyChecklist' && (
-              <ChecklistMobileInput 
+              <ChecklistMobileInput
                 onAddTodo={(text) => handleAddTodo("dailyChecklist", text, undefined, 'niedrig')}
               />
             )}
@@ -494,11 +431,14 @@ function App() {
 
 export default App;
 
+// ---------------------------------------------------------------------------
 // Mobile Input Components
-function AllgemeinMobileInput({ 
-  onAddTodo 
-}: { 
-  onAddTodo: (text: string, date?: string, priority?: TodoPriority) => void 
+// ---------------------------------------------------------------------------
+
+function AllgemeinMobileInput({
+  onAddTodo
+}: {
+  onAddTodo: (text: string, date?: string, priority?: TodoPriority) => void
 }) {
   const [text, setText] = useState('');
   const [date, setDate] = useState('');
@@ -518,14 +458,13 @@ function AllgemeinMobileInput({
 
   return (
     <form onSubmit={handleSubmit} className="flex gap-[8px] items-center">
-      {/* Date Button with Transparent Overlay */}
-      <div 
+      {/* Datum-Button */}
+      <div
         className="relative size-[40px] shrink-0 cursor-pointer"
         onClick={() => {
           try {
             dateInputRef.current?.showPicker();
-          } catch (e) {
-            // Fallback für iFrame-Umgebungen: Input fokussieren
+          } catch {
             dateInputRef.current?.focus();
             dateInputRef.current?.click();
           }
@@ -544,13 +483,12 @@ function AllgemeinMobileInput({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
           </svg>
         </div>
-        {/* Blue Indicator Dot */}
         {date && (
-          <div className="absolute top-[2px] right-[2px] size-[8px] bg-blue-500 rounded-full border-2 border-white pointer-events-none z-15" />
+          <div className="absolute top-[2px] right-[2px] size-[8px] bg-blue-500 rounded-full border-2 border-white pointer-events-none z-10" />
         )}
       </div>
 
-      {/* Priorität Button - Zyklisch 3→1→2→3 */}
+      {/* Priorität-Button */}
       <button
         type="button"
         onClick={() => {
@@ -559,18 +497,18 @@ function AllgemeinMobileInput({
           else setPriority('niedrig');
         }}
         className={`border rounded-[4px] px-[12px] py-[8px] size-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] font-semibold transition-colors shrink-0 flex items-center justify-center ${
-          priority === 'hoch' 
-            ? 'bg-[#ff4444] border-[#ff4444] text-white hover:bg-[#dd3333]' 
+          priority === 'hoch'
+            ? 'bg-[#CD8787] border-[#CD8787] text-white hover:bg-[#b87070]'
             : priority === 'mittel'
-            ? 'bg-[#ffaa00] border-[#ffaa00] text-white hover:bg-[#dd9900]'
-            : 'bg-[#44aa44] border-[#44aa44] text-white hover:bg-[#338833]'
+              ? 'bg-[#F2AB98] border-[#F2AB98] text-white hover:bg-[#e09080]'
+              : 'bg-[#96C57A] border-[#96C57A] text-white hover:bg-[#7eb063]'
         }`}
         title="Priorität wechseln"
       >
         {priority === 'hoch' ? '1' : priority === 'mittel' ? '2' : '3'}
       </button>
 
-      {/* Input mit Plus Icon innen */}
+      {/* Text-Input */}
       <div className="flex-1 relative">
         <input
           type="text"
@@ -593,10 +531,10 @@ function AllgemeinMobileInput({
   );
 }
 
-function ChecklistMobileInput({ 
-  onAddTodo 
-}: { 
-  onAddTodo: (text: string) => void 
+function ChecklistMobileInput({
+  onAddTodo
+}: {
+  onAddTodo: (text: string) => void
 }) {
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
