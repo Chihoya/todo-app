@@ -504,6 +504,7 @@ function AllgemeinMobileInput({
   const [date, setDate] = useState('');
   const [priority, setPriority] = useState<TodoPriority>('niedrig');
   const inputRef = useRef<HTMLInputElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -518,12 +519,24 @@ function AllgemeinMobileInput({
   return (
     <form onSubmit={handleSubmit} className="flex gap-[8px] items-center">
       {/* Date Button with Transparent Overlay */}
-      <div className="relative size-[40px] shrink-0">
+      <div 
+        className="relative size-[40px] shrink-0 cursor-pointer"
+        onClick={() => {
+          try {
+            dateInputRef.current?.showPicker();
+          } catch (e) {
+            // Fallback für iFrame-Umgebungen: Input fokussieren
+            dateInputRef.current?.focus();
+            dateInputRef.current?.click();
+          }
+        }}
+      >
         <input
+          ref={dateInputRef}
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+          className="absolute inset-0 w-full h-full opacity-0 pointer-events-none z-20"
           title={date || "Datum auswählen"}
         />
         <div className="absolute inset-0 bg-white border border-[#999da1] rounded-[4px] hover:bg-gray-50 transition-colors flex items-center justify-center pointer-events-none">
