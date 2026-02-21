@@ -3,12 +3,13 @@ import React, {
   useEffect,
   useCallback,
   useMemo,
+  useRef,
 } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { TodoCard } from "@/app/components/TodoCard";
+import { ChecklistCard } from "@/app/components/ChecklistCard";
 import { MobileTabBar } from "@/app/components/MobileTabBar";
-import { MobileInputContainer } from "@/app/components/MobileInputContainer";
 import { AuthScreen } from "@/app/components/AuthScreen";
 import { CheckSquare } from "lucide-react";
 import { Todo, TodoCategory, TodoPriority } from "@/types/todo";
@@ -17,21 +18,18 @@ import { authService } from "@/services/authService";
 import { supabaseAuthService } from "@/services/supabaseAuthService";
 import { supabase } from "@/services/supabase";
 import { sortTodosByPriorityAndOrder, calculateMaxOrder } from "@/utils/todoHelpers";
-
-// Use Supabase auth if available, otherwise local auth
-const activeAuthService = supabase ? supabaseAuthService : authService;
+import { Plus } from "lucide-react";
 
 function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeMobileCategory, setActiveMobileCategory] = useState<TodoCategory | 'erledigt'>('allgemein');
+  const [activeMobileCategory, setActiveMobileCategory] = useState<TodoCategory | 'dailyChecklist'>('allgemein');
+  const [isAllgemeinArchiveView, setIsAllgemeinArchiveView] = useState(false);
 
   // Check authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
-      // For Supabase: check session (synchronous)
-      // For LocalStorage: check session (synchronous)
       const hasValidSession = supabase
         ? supabaseAuthService.hasValidSession()
         : authService.hasValidSession();
@@ -334,11 +332,42 @@ function App() {
       .sort(sortTodosByPriorityAndOrder);
   }, [todos]);
 
+  // Helper function specifically for checklist (shows both completed and uncompleted)
+  const filterAndSortChecklistTodos = useCallback((category: string) => {
+    return todos
+      .filter((t) => t.category === category)
+      .sort(sortTodosByPriorityAndOrder);
+  }, [todos]);
+
   // Memoized filtered and sorted todos by category
   const allgemeinTodos = useMemo(() => filterAndSortTodos("allgemein"), [filterAndSortTodos]);
-  const dailyTodos = useMemo(() => filterAndSortTodos("daily"), [filterAndSortTodos]);
-  const weeklyTodos = useMemo(() => filterAndSortTodos("weekly"), [filterAndSortTodos]);
+  const dailyChecklistTodos = useMemo(() => filterAndSortChecklistTodos("dailyChecklist"), [filterAndSortChecklistTodos]);
   const completedTodos = useMemo(() => filterAndSortTodos("", true), [filterAndSortTodos]);
+
+  // Reset all checklist items to uncompleted
+  const handleResetChecklist = useCallback(async () => {
+    const checklistTodos = todos.filter(t => t.category === 'dailyChecklist' && t.completed);
+    
+    // Optimistically update UI first
+    setTodos(prevTodos => prevTodos.map(t => 
+      t.category === 'dailyChecklist' && t.completed 
+        ? { ...t, completed: false }
+        : t
+    ));
+
+    // Then update storage
+    try {
+      await Promise.all(
+        checklistTodos.map(todo => 
+          todoService.updateTodo(todo.id, { completed: false })
+        )
+      );
+    } catch (error) {
+      console.error('Failed to reset checklist:', error);
+      // Revert on error
+      loadTodos();
+    }
+  }, [todos]);
 
   if (isLoading) {
     return (
@@ -358,64 +387,39 @@ function App() {
   return (
     <DndProvider backend={HTML5Backend}>
       {/* Desktop Layout */}
-      <div className="hidden md:block min-h-screen bg-white p-8">
-        <div className="w-full h-[calc(100vh-4rem)]">
-          <div className="flex flex-row gap-6 h-full">
-            <TodoCard
-              title="Allgemein"
-              category="allgemein"
-              todos={allgemeinTodos}
-              onToggleComplete={handleToggleComplete}
-              onDeleteTodo={handleDeleteTodo}
-              onEditTodo={handleEditTodo}
-              onUpdatePriority={handleUpdatePriority}
-              onMoveTodo={handleMoveTodo}
-              onAddTodo={(text, date, priority) =>
-                handleAddTodo("allgemein", text, date, priority)
-              }
-              onReorderTodo={handleReorderTodo}
-            />
+      <div className="hidden md:block min-h-screen bg-[#FBFEFE]">
+        <div className="px-[16px] py-[32px] h-full">
+          <div className="flex gap-[16px] h-[calc(100vh-64px)]">
+              <TodoCard
+                title={isAllgemeinArchiveView ? "Archiv" : "Allgemein"}
+                category="allgemein"
+                todos={isAllgemeinArchiveView ? completedTodos : allgemeinTodos}
+                onToggleComplete={handleToggleComplete}
+                onDeleteTodo={handleDeleteTodo}
+                onEditTodo={handleEditTodo}
+                onUpdatePriority={!isAllgemeinArchiveView ? handleUpdatePriority : undefined}
+                onMoveTodo={!isAllgemeinArchiveView ? handleMoveTodo : undefined}
+                onAddTodo={!isAllgemeinArchiveView ? (text, date, priority) =>
+                  handleAddTodo("allgemein", text, date, priority) : undefined
+                }
+                onReorderTodo={!isAllgemeinArchiveView ? handleReorderTodo : undefined}
+                onClearCompleted={isAllgemeinArchiveView ? handleClearCompleted : undefined}
+                isCompletedCard={isAllgemeinArchiveView}
+                isArchiveView={isAllgemeinArchiveView}
+                onToggleArchive={() => setIsAllgemeinArchiveView(!isAllgemeinArchiveView)}
+              />
 
-            <TodoCard
-              title="Daily"
-              category="daily"
-              todos={dailyTodos}
-              onToggleComplete={handleToggleComplete}
-              onDeleteTodo={handleDeleteTodo}
-              onEditTodo={handleEditTodo}
-              onUpdatePriority={handleUpdatePriority}
-              onMoveTodo={handleMoveTodo}
-              onAddTodo={(text, date, priority) =>
-                handleAddTodo("daily", text, date, priority)
-              }
-              onReorderTodo={handleReorderTodo}
-            />
-
-            <TodoCard
-              title="Weekly"
-              category="weekly"
-              todos={weeklyTodos}
-              onToggleComplete={handleToggleComplete}
-              onDeleteTodo={handleDeleteTodo}
-              onEditTodo={handleEditTodo}
-              onUpdatePriority={handleUpdatePriority}
-              onMoveTodo={handleMoveTodo}
-              onAddTodo={(text, date, priority) =>
-                handleAddTodo("weekly", text, date, priority)
-              }
-              onReorderTodo={handleReorderTodo}
-            />
-
-            <TodoCard
-              title="Erledigt"
-              category="erledigt"
-              todos={completedTodos}
-              onToggleComplete={handleToggleComplete}
-              onDeleteTodo={handleDeleteTodo}
-              onEditTodo={handleEditTodo}
-              onClearCompleted={handleClearCompleted}
-              isCompletedCard={true}
-            />
+              <ChecklistCard
+                title="Daily Checkliste"
+                todos={dailyChecklistTodos}
+                onToggleComplete={handleToggleComplete}
+                onDeleteTodo={handleDeleteTodo}
+                onEditTodo={handleEditTodo}
+                onAddTodo={(text) =>
+                  handleAddTodo("dailyChecklist", text, undefined, 'niedrig')
+                }
+                onResetAll={handleResetChecklist}
+              />
           </div>
         </div>
       </div>
@@ -426,74 +430,62 @@ function App() {
         <div className="flex-1 overflow-y-auto">
           {activeMobileCategory === 'allgemein' && (
             <TodoCard
-              title="Allgemein"
+              title={isAllgemeinArchiveView ? "Archiv" : "Allgemein"}
               category="allgemein"
-              todos={allgemeinTodos}
+              todos={isAllgemeinArchiveView ? completedTodos : allgemeinTodos}
               onToggleComplete={handleToggleComplete}
               onDeleteTodo={handleDeleteTodo}
               onEditTodo={handleEditTodo}
-              onUpdatePriority={handleUpdatePriority}
-              onMoveTodo={handleMoveTodo}
-              onReorderTodo={handleReorderTodo}
+              onUpdatePriority={!isAllgemeinArchiveView ? handleUpdatePriority : undefined}
+              onMoveTodo={!isAllgemeinArchiveView ? handleMoveTodo : undefined}
+              onAddTodo={!isAllgemeinArchiveView ? (text, date, priority) =>
+                handleAddTodo("allgemein", text, date, priority) : undefined
+              }
+              onReorderTodo={!isAllgemeinArchiveView ? handleReorderTodo : undefined}
+              onClearCompleted={isAllgemeinArchiveView ? handleClearCompleted : undefined}
+              isCompletedCard={isAllgemeinArchiveView}
+              isArchiveView={isAllgemeinArchiveView}
+              onToggleArchive={() => setIsAllgemeinArchiveView(!isAllgemeinArchiveView)}
               isMobileView={true}
             />
           )}
-          {activeMobileCategory === 'daily' && (
-            <TodoCard
-              title="Daily"
-              category="daily"
-              todos={dailyTodos}
+          {activeMobileCategory === 'dailyChecklist' && (
+            <ChecklistCard
+              title="Daily Checkliste"
+              todos={dailyChecklistTodos}
               onToggleComplete={handleToggleComplete}
               onDeleteTodo={handleDeleteTodo}
               onEditTodo={handleEditTodo}
-              onUpdatePriority={handleUpdatePriority}
-              onMoveTodo={handleMoveTodo}
-              onReorderTodo={handleReorderTodo}
-              isMobileView={true}
-            />
-          )}
-          {activeMobileCategory === 'weekly' && (
-            <TodoCard
-              title="Weekly"
-              category="weekly"
-              todos={weeklyTodos}
-              onToggleComplete={handleToggleComplete}
-              onDeleteTodo={handleDeleteTodo}
-              onEditTodo={handleEditTodo}
-              onUpdatePriority={handleUpdatePriority}
-              onMoveTodo={handleMoveTodo}
-              onReorderTodo={handleReorderTodo}
-              isMobileView={true}
-            />
-          )}
-          {activeMobileCategory === 'erledigt' && (
-            <TodoCard
-              title="Erledigt"
-              category="erledigt"
-              todos={completedTodos}
-              onToggleComplete={handleToggleComplete}
-              onDeleteTodo={handleDeleteTodo}
-              onEditTodo={handleEditTodo}
-              onClearCompleted={handleClearCompleted}
-              isCompletedCard={true}
+              onAddTodo={(text) =>
+                handleAddTodo("dailyChecklist", text, undefined, 'niedrig')
+              }
+              onResetAll={handleResetChecklist}
               isMobileView={true}
             />
           )}
         </div>
 
         {/* Sticky Bottom Container - Tabs + Input */}
-        <div className="shrink-0 bg-[#f7fcff] flex flex-col gap-[24px] pb-[40px] pt-[24px] px-[16px]">
+        <div className="shrink-0 bg-[#f7fcff] flex flex-col gap-[16px] pb-[40px] pt-[24px] px-[16px]">
+          {/* Tab Bar */}
           <MobileTabBar
             activeCategory={activeMobileCategory}
             onCategoryChange={(category) => setActiveMobileCategory(category)}
           />
           
-          {activeMobileCategory !== 'erledigt' && (
-            <MobileInputContainer
-              activeCategory={activeMobileCategory}
-              onAddTodo={handleAddTodo}
-            />
-          )}
+          {/* Mobile Input Area */}
+          <div className="w-full">
+            {activeMobileCategory === 'allgemein' && !isAllgemeinArchiveView && (
+              <AllgemeinMobileInput 
+                onAddTodo={(text, date, priority) => handleAddTodo("allgemein", text, date, priority)}
+              />
+            )}
+            {activeMobileCategory === 'dailyChecklist' && (
+              <ChecklistMobileInput 
+                onAddTodo={(text) => handleAddTodo("dailyChecklist", text, undefined, 'niedrig')}
+              />
+            )}
+          </div>
         </div>
       </div>
     </DndProvider>
@@ -501,3 +493,128 @@ function App() {
 }
 
 export default App;
+
+// Mobile Input Components
+function AllgemeinMobileInput({ 
+  onAddTodo 
+}: { 
+  onAddTodo: (text: string, date?: string, priority?: TodoPriority) => void 
+}) {
+  const [text, setText] = useState('');
+  const [date, setDate] = useState('');
+  const [priority, setPriority] = useState<TodoPriority>('niedrig');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (text.trim()) {
+      onAddTodo(text.trim(), date || undefined, priority);
+      setText('');
+      setDate('');
+      inputRef.current?.focus();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-[8px] items-center">
+      {/* Datum Button */}
+      <button
+        type="button"
+        onClick={() => {
+          const input = document.createElement('input');
+          input.type = 'date';
+          input.value = date;
+          input.onchange = (e) => setDate((e.target as HTMLInputElement).value);
+          input.click();
+        }}
+        className="bg-white border border-[#999da1] rounded-[4px] px-[12px] py-[8px] min-h-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] hover:bg-gray-50 transition-colors flex items-center justify-center shrink-0"
+        title={date || "Datum auswählen"}
+      >
+        <svg className="size-5 text-[#666a6e]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        </svg>
+      </button>
+
+      {/* Priorität Button - Zyklisch 3→1→2→3 */}
+      <button
+        type="button"
+        onClick={() => {
+          if (priority === 'niedrig') setPriority('hoch');
+          else if (priority === 'hoch') setPriority('mittel');
+          else setPriority('niedrig');
+        }}
+        className={`border rounded-[4px] px-[12px] py-[8px] min-h-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] font-semibold transition-colors shrink-0 ${
+          priority === 'hoch' 
+            ? 'bg-[#ff4444] border-[#ff4444] text-white hover:bg-[#dd3333]' 
+            : priority === 'mittel'
+            ? 'bg-[#ffaa00] border-[#ffaa00] text-white hover:bg-[#dd9900]'
+            : 'bg-[#44aa44] border-[#44aa44] text-white hover:bg-[#338833]'
+        }`}
+        title="Priorität wechseln"
+      >
+        {priority === 'hoch' ? '1' : priority === 'mittel' ? '2' : '3'}
+      </button>
+
+      {/* Input mit Plus Icon innen */}
+      <div className="flex-1 relative">
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="bg-white border border-[#999da1] rounded-[4px] pl-[12px] pr-[44px] py-[8px] min-h-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
+          placeholder="Neue Aufgabe hinzufügen..."
+          ref={inputRef}
+        />
+        <button
+          type="submit"
+          disabled={!text.trim()}
+          className="absolute right-[4px] top-1/2 -translate-y-1/2 bg-[#436384] text-white rounded-[4px] p-[6px] hover:bg-[#355070] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Hinzufügen"
+        >
+          <Plus className="size-5" />
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ChecklistMobileInput({ 
+  onAddTodo 
+}: { 
+  onAddTodo: (text: string) => void 
+}) {
+  const [text, setText] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (text.trim()) {
+      onAddTodo(text.trim());
+      setText('');
+      inputRef.current?.focus();
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex items-center">
+      <div className="flex-1 relative">
+        <input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          className="bg-white border border-[#999da1] rounded-[4px] pl-[12px] pr-[44px] py-[8px] min-h-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
+          placeholder="Neuen Checkpunkt hinzufügen..."
+          ref={inputRef}
+        />
+        <button
+          type="submit"
+          disabled={!text.trim()}
+          className="absolute right-[4px] top-1/2 -translate-y-1/2 bg-[#436384] text-white rounded-[4px] p-[6px] hover:bg-[#355070] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+          title="Hinzufügen"
+        >
+          <Plus className="size-5" />
+        </button>
+      </div>
+    </form>
+  );
+}

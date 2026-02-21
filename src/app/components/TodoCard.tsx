@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useDrop } from 'react-dnd';
 import { TodoItem } from '@/app/components/TodoItem';
-import { Plus, ChevronDown, Maximize2, Minimize2, Trash2 } from 'lucide-react';
+import { Plus, Archive, Trash2 } from 'lucide-react';
 import { Todo, TodoCategory, TodoPriority } from '@/types/todo';
 
 const ITEM_TYPE = 'TODO_ITEM';
@@ -26,37 +26,18 @@ interface TodoCardProps {
   onReorderTodo?: (category: TodoCategory, priority: TodoPriority, dragIndex: number, hoverIndex: number) => void;
   onClearCompleted?: () => void;
   isCompletedCard?: boolean;
-  isMobileView?: boolean; // New prop for mobile layout
+  isMobileView?: boolean;
+  isArchiveView?: boolean;
+  onToggleArchive?: () => void;
 }
 
 const CARD_STYLES = {
   allgemein: {
-    bg: 'bg-[#eaf7ff]',
-    border: 'border-[#4390bf]',
+    bg: 'bg-[#FBFBFB]',
+    border: 'border-[#C2C2C2]',
     headerText: 'text-[#002d5a]',
     inputBg: 'bg-[#f7fcff]',
     emptyText: 'text-[#6699cc]',
-  },
-  daily: {
-    bg: 'bg-[#e5faec]',
-    border: 'border-[#3fbf74]',
-    headerText: 'text-[#053c14]',
-    inputBg: 'bg-[#f1fef5]',
-    emptyText: 'text-[#66cc99]',
-  },
-  weekly: {
-    bg: 'bg-[#fae5f7]',
-    border: 'border-[#bf3f9f]',
-    headerText: 'text-[#5a0044]',
-    inputBg: 'bg-[#fcf1fa]',
-    emptyText: 'text-[#cc66aa]',
-  },
-  erledigt: {
-    bg: 'bg-[#efefef]',
-    border: 'border-[#999da1]',
-    headerText: 'text-[#333333]',
-    inputBg: 'bg-[#f7f7f7]',
-    emptyText: 'text-[#999da1]',
   },
 };
 
@@ -110,14 +91,14 @@ function PrioritySection({
   const showDropIndicator = isOver && canDrop;
 
   return (
-    <div className="flex flex-col gap-[12px] w-full">
-      <p className={`font-['Source_Sans_Pro',sans-serif] text-[14px] font-semibold ${styles.headerText}`}>
+    <div className="flex flex-col gap-[6px] w-full">
+      <p className={`font-['Source_Sans_Pro',sans-serif] text-[12px] text-[#666a6e]`}>
         {PRIORITY_LABELS[priority]}
       </p>
       
       <div 
         ref={drop}
-        className={`flex flex-col gap-[12px] min-h-[60px] rounded-lg transition-all duration-200 ${
+        className={`flex flex-col gap-[6px] min-h-[60px] rounded-lg transition-all duration-200 ${
           showDropIndicator ? 'ring-2 ring-blue-400 ring-offset-2 bg-blue-50/50' : ''
         }`}
       >
@@ -163,13 +144,15 @@ export function TodoCard({
   onReorderTodo,
   onClearCompleted,
   isCompletedCard = false,
-  isMobileView = false, // Default to false if not provided
+  isMobileView = false,
+  isArchiveView = false,
+  onToggleArchive,
 }: TodoCardProps) {
   const [text, setText] = useState('');
   const [date, setDate] = useState('');
   const [priority, setPriority] = useState<TodoPriority>('niedrig');
-  const [isCollapsed, setIsCollapsed] = useState(isCompletedCard);
   const inputRef = useRef<HTMLInputElement>(null);
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   // Drop zone for moving items between cards
   const [{ isOver, canDrop }, drop] = useDrop<DragItem, void, { isOver: boolean; canDrop: boolean }>({
@@ -200,14 +183,14 @@ export function TodoCard({
   };
 
   const showDropIndicator = isOver && canDrop;
-  const styles = CARD_STYLES[category];
+  const styles = CARD_STYLES.allgemein;
 
   // Sort function: items with date first, sorted by date, then items without date
   const sortTodosByDate = (todoList: Todo[]) => {
     const withDate = todoList.filter(t => t.date).sort((a, b) => {
       const dateA = new Date(a.date!).getTime();
       const dateB = new Date(b.date!).getTime();
-      return dateA - dateB; // Ältere Daten zuerst
+      return dateA - dateB;
     });
     const withoutDate = todoList.filter(t => !t.date);
     return [...withDate, ...withoutDate];
@@ -218,72 +201,49 @@ export function TodoCard({
   const mittelTodos = sortTodosByDate(todos.filter(t => t.priority === 'mittel'));
   const niedrigTodos = sortTodosByDate(todos.filter(t => t.priority === 'niedrig'));
 
-  // Collapsed view
-  if (isCollapsed && !isMobileView) {
-    return (
-      <div
-        className={`
-          w-[48px]
-          flex-none 
-          h-full
-          rounded-[12px] border ${styles.bg} ${styles.border} 
-          overflow-hidden flex items-center justify-center 
-          transition-all cursor-pointer hover:opacity-90
-        `}
-        onClick={() => setIsCollapsed(false)}
-        title="Card aufklappen"
-      >
-        <div className="flex items-center justify-center h-full w-full relative">
-          {/* Desktop: Rotated vertical text */}
-          <div className="flex items-center justify-center h-full w-full relative">
-            <div className="-rotate-90 flex-none whitespace-nowrap">
-              <div className="flex items-center gap-[16px] px-[24px] py-[8px]">
-                <h2 className={`font-['Source_Sans_Pro',sans-serif] font-semibold text-[18px] ${styles.headerText}`}>
-                  {title}
-                </h2>
-                <button 
-                  className="p-[6px] rounded-[4px] hover:bg-black/5 transition-colors"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsCollapsed(false);
-                  }}
-                >
-                  <Minimize2 className={`size-5 ${isCompletedCard ? 'text-[#3c0d3c]' : 'text-[#0246a1]'}`} />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Expanded view
   return (
     <div
       ref={drop}
-      className={`flex-1 ${isMobileView ? 'min-w-full' : 'min-w-[280px]'} h-full ${isMobileView ? '' : 'rounded-[12px] border'} ${styles.bg} ${isMobileView ? '' : styles.border} overflow-hidden flex flex-col transition-all ${
+      className={`flex-1 ${isMobileView ? 'min-w-full' : 'min-w-[280px]'} h-full ${isMobileView ? '' : 'rounded-[4px] border'} ${styles.bg} ${isMobileView ? '' : styles.border} overflow-hidden flex flex-col transition-all ${
         showDropIndicator ? 'ring-4 ring-blue-400 ring-offset-2' : ''
       }`}
     >
       {/* Header */}
       <div className={`${isMobileView ? 'pt-[16px]' : 'pt-[24px]'} pb-[8px] px-[16px]`}>
-        <div 
-          className={`flex items-center justify-between ${!isMobileView ? 'cursor-pointer' : ''}`}
-          onClick={() => !isMobileView && setIsCollapsed(true)}
-        >
+        <div className="flex items-center justify-between gap-[8px]">
           <p className="font-['Source_Sans_Pro',sans-serif] font-semibold text-[18px] text-[#002d5a]">
             {title}
           </p>
-          {!isMobileView && (
-            <button 
-              className="flex items-center justify-center p-[6px] rounded-[4px] shrink-0 size-[24px] hover:bg-black/5 transition-colors"
-              onClick={() => setIsCollapsed(true)}
-              aria-label="Card zuklappen"
-            >
-              <Minimize2 className="size-5 text-[#0246a1]" />
-            </button>
-          )}
+          <div className="flex items-center gap-[4px]">
+            {/* Delete All Completed Button - Only in Archive View */}
+            {isArchiveView && onClearCompleted && (
+              <button 
+                className="flex items-center justify-center p-[6px] rounded-[4px] shrink-0 size-[24px] hover:bg-red-50 transition-colors"
+                onClick={() => {
+                  if (window.confirm('Möchten Sie wirklich alle erledigten Aufgaben dauerhaft löschen?')) {
+                    onClearCompleted();
+                  }
+                }}
+                aria-label="Alle erledigten löschen"
+                title="Alle erledigten Aufgaben dauerhaft löschen"
+              >
+                <Trash2 className="size-5 text-red-600" />
+              </button>
+            )}
+            {/* Archive Toggle Button - Only for Allgemein card */}
+            {onToggleArchive && category === 'allgemein' && (
+              <button 
+                className={`flex items-center justify-center p-[6px] rounded-[4px] shrink-0 size-[24px] hover:bg-black/5 transition-colors ${
+                  isArchiveView ? 'bg-black/10' : ''
+                }`}
+                onClick={onToggleArchive}
+                aria-label={isArchiveView ? "Zurück zu Allgemein" : "Archiv anzeigen"}
+                title={isArchiveView ? "Zurück zu Allgemein" : "Archiv anzeigen"}
+              >
+                <Archive className={`size-5 ${isArchiveView ? 'text-[#666a6e]' : 'text-[#0246a1]'}`} />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -329,70 +289,70 @@ export function TodoCard({
         />
       </div>
 
-      {/* Input Section - Only for non-completed cards */}
+      {/* Input Section - Einheitlich für Desktop & Mobile */}
       {!isCompletedCard && onAddTodo && !isMobileView && (
         <div className={`${styles.inputBg} p-[16px]`}>
-          <form onSubmit={handleSubmit} className="flex flex-col gap-[16px]">
-            {/* Text Input */}
-            <div className="flex flex-col gap-[4px]">
-              <label className="font-['Source_Sans_Pro',sans-serif] text-[14px] text-[#666a6e] flex items-center gap-0.5">
-                Neue Aufgabe
-                <span className="text-red-500">*</span>
-              </label>
+          <form onSubmit={handleSubmit} className="flex gap-[8px] items-center">
+            {/* Date Button with Transparent Overlay */}
+            <div className="relative size-[40px] shrink-0">
               <input
+                ref={dateInputRef}
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                title={date || "Datum auswählen"}
+              />
+              <div className="absolute inset-0 bg-white border border-[#999da1] rounded-[4px] hover:bg-gray-50 transition-colors flex items-center justify-center pointer-events-none">
+                <svg className="size-5 text-[#666a6e]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              {/* Blue Indicator Dot */}
+              {date && (
+                <div className="absolute top-[2px] right-[2px] size-[8px] bg-blue-500 rounded-full border-2 border-white pointer-events-none z-15" />
+              )}
+            </div>
+
+            {/* Priority Button */}
+            <button
+              type="button"
+              onClick={() => {
+                if (priority === 'niedrig') setPriority('hoch');
+                else if (priority === 'hoch') setPriority('mittel');
+                else setPriority('niedrig');
+              }}
+              className={`border rounded-[4px] px-[12px] py-[8px] size-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] font-semibold transition-colors shrink-0 flex items-center justify-center ${
+                priority === 'hoch' 
+                  ? 'bg-[#ff4444] border-[#ff4444] text-white hover:bg-[#dd3333]' 
+                  : priority === 'mittel'
+                  ? 'bg-[#ffaa00] border-[#ffaa00] text-white hover:bg-[#dd9900]'
+                  : 'bg-[#44aa44] border-[#44aa44] text-white hover:bg-[#338833]'
+              }`}
+              title="Priorität wechseln"
+            >
+              {priority === 'hoch' ? '1' : priority === 'mittel' ? '2' : '3'}
+            </button>
+
+            {/* Text Input with Submit Button */}
+            <div className="flex-1 relative">
+              <input
+                ref={inputRef}
                 type="text"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                className="bg-white border border-[#999da1] rounded-[4px] px-[8px] py-[6px] min-h-[32px] text-[16px] font-['Source_Sans_Pro',sans-serif] focus:outline-none focus:ring-2 focus:ring-blue-400"
-                placeholder=""
-                ref={inputRef}
+                className="bg-white border border-[#999da1] rounded-[4px] pl-[12px] pr-[44px] py-[8px] h-[40px] text-[16px] font-['Source_Sans_Pro',sans-serif] focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
+                placeholder="Neue Aufgabe hinzufügen..."
               />
+              <button
+                type="submit"
+                disabled={!text.trim()}
+                className="absolute right-[4px] top-1/2 -translate-y-1/2 bg-[#436384] text-white rounded-[4px] p-[6px] hover:bg-[#355070] transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                title="Hinzufügen"
+              >
+                <Plus className="size-5" />
+              </button>
             </div>
-
-            {/* Datum and Prio row */}
-            <div className="flex gap-[8px] w-full">
-              {/* Datum Input */}
-              <div className="flex-1 min-w-0 flex flex-col gap-[4px]">
-                <label className="font-['Source_Sans_Pro',sans-serif] text-[14px] text-[#666a6e]">
-                  Datum
-                </label>
-                <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="bg-white border border-[#999da1] rounded-[4px] px-[8px] py-[6px] min-h-[32px] text-[16px] font-['Source_Sans_Pro',sans-serif] w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
-                />
-              </div>
-
-              {/* Prio Dropdown */}
-              <div className="flex-1 min-w-0 flex flex-col gap-[4px]">
-                <label className="font-['Source_Sans_Pro',sans-serif] text-[14px] text-[#666a6e]">
-                  Prio
-                </label>
-                <div className="relative w-full">
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value as TodoPriority)}
-                    className="bg-white border border-[#999da1] rounded-[4px] px-[8px] py-[6px] min-h-[32px] text-[16px] font-['Source_Sans_Pro',sans-serif] w-full appearance-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-                  >
-                    <option value="hoch">Hoch</option>
-                    <option value="mittel">Mittel</option>
-                    <option value="niedrig">Niedrig</option>
-                  </select>
-                  <ChevronDown className="absolute right-[4px] top-1/2 -translate-y-1/2 size-6 text-[#666a6e] pointer-events-none" />
-                </div>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={!text.trim()}
-              className="bg-[#436384] text-white rounded-[4px] px-[10px] py-[6px] font-['Source_Sans_Pro',sans-serif] text-[14px] flex items-center justify-center gap-[6px] hover:bg-[#355070] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Plus className="size-5" />
-              Hinzufügen
-            </button>
           </form>
         </div>
       )}

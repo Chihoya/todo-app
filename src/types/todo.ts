@@ -1,4 +1,4 @@
-export type TodoCategory = 'allgemein' | 'daily' | 'weekly';
+export type TodoCategory = 'allgemein' | 'dailyChecklist';
 export type TodoPriority = 'hoch' | 'mittel' | 'niedrig';
 
 export interface Todo {

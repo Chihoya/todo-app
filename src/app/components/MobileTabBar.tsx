@@ -2,15 +2,13 @@ import React from 'react';
 import { TodoCategory } from '@/types/todo';
 
 interface MobileTabBarProps {
-  activeCategory: TodoCategory | 'erledigt';
-  onCategoryChange: (category: TodoCategory | 'erledigt') => void;
+  activeCategory: TodoCategory | 'dailyChecklist';
+  onCategoryChange: (category: TodoCategory | 'dailyChecklist') => void;
 }
 
 const TABS = [
-  { category: 'allgemein' as const, label: 'To Do' },
-  { category: 'daily' as const, label: 'Daily' },
-  { category: 'weekly' as const, label: 'Weekly' },
-  { category: 'erledigt' as const, label: 'Archiv' },
+  { category: 'allgemein' as const, label: 'Allgemein' },
+  { category: 'dailyChecklist' as const, label: 'Checkliste' },
 ];
 
 export function MobileTabBar({ activeCategory, onCategoryChange }: MobileTabBarProps) {
